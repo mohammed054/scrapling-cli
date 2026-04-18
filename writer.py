@@ -1,102 +1,120 @@
 """
-writer.py — Markdown file generator.
-
-Handles:
-  - Clean filename normalization (lowercase, no special chars, max 100 chars)
-  - Directory creation
-  - Duplicate filename detection
-  - Full markdown template from blueprint spec
+writer.py — Markdown file generation for top-performing videos.
+Handles filename normalization and directory structure creation.
 """
 
 import logging
+import os
 import re
-from pathlib import Path
-from typing import List
+import unicodedata
+from datetime import date
+from typing import Optional
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-# Maximum filename length (excluding .md extension)
-MAX_FILENAME_LEN = 100
+MAX_FILENAME_LENGTH = 100  # characters (excluding .md)
 
 
-class MarkdownWriter:
+def _slugify(text: str, max_len: int = MAX_FILENAME_LENGTH) -> str:
     """
-    Writes top-scoring videos/shorts to .md files in organized directories.
-
-    Output structure:
-        {output_root}/{channel_name}/videos/
-        {output_root}/{channel_name}/shorts/
+    Convert a title to a clean filename-safe slug.
+    - Lowercase
+    - Replace spaces → hyphens
+    - Remove special characters
+    - Trim to max_len
     """
+    # Normalize unicode (e.g. accents)
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    # Replace non-alphanumeric/space/hyphen with space
+    text = re.sub(r"[^a-z0-9\s\-]", " ", text)
+    # Collapse whitespace and replace with hyphens
+    text = re.sub(r"[\s\-]+", "-", text)
+    text = text.strip("-")
+    return text[:max_len]
 
-    def __init__(self, output_root: str, channel_name: str):
-        self.root = Path(output_root) / channel_name
-        self._used_filenames: set = set()
 
-    def write_batch(self, items: List[dict], content_type: str) -> List[Path]:
-        """
-        Write all items for a given content type.
-        Returns list of written paths.
-        """
-        if not items:
-            return []
+def _build_filename(item: dict) -> str:
+    """Build filename: {slug}-{date}.md"""
+    slug = _slugify(item.get("title", "untitled"))
+    upload_date = item.get("date")
+    date_str = upload_date.strftime("%Y-%m-%d") if isinstance(upload_date, date) else "no-date"
+    return f"{slug}-{date_str}.md"
 
-        out_dir = self.root / content_type
-        out_dir.mkdir(parents=True, exist_ok=True)
-        log.info(f"Writing {len(items)} {content_type} to {out_dir}")
 
-        paths = []
-        for item in items:
-            try:
-                path = self._write_item(item, out_dir)
-                paths.append(path)
-            except Exception as e:
-                log.warning(f"Failed to write '{item.get('title', '?')}': {e}")
+def _format_number(n: int) -> str:
+    """Format large numbers with commas."""
+    try:
+        return f"{int(n):,}"
+    except (TypeError, ValueError):
+        return str(n)
 
-        return paths
 
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
+def _duration_str(seconds: int) -> str:
+    """Convert seconds to MM:SS or HH:MM:SS."""
+    try:
+        s = int(seconds)
+        h, rem = divmod(s, 3600)
+        m, sec = divmod(rem, 60)
+        if h:
+            return f"{h}:{m:02d}:{sec:02d}"
+        return f"{m}:{sec:02d}"
+    except Exception:
+        return "unknown"
 
-    def _write_item(self, item: dict, out_dir: Path) -> Path:
-        filename = self._make_filename(item)
-        path = out_dir / filename
 
-        content = self._render(item)
-        path.write_text(content, encoding="utf-8")
-        log.debug(f"Wrote: {path}")
-        return path
+def _render_markdown(item: dict) -> str:
+    """Render a full markdown file from a VideoRecord dict."""
+    title = item.get("title", "Untitled")
+    date_val = item.get("date")
+    date_str = date_val.strftime("%Y-%m-%d") if isinstance(date_val, date) else "Unknown"
+    views = _format_number(item.get("views", 0))
+    likes = _format_number(item.get("likes", 0))
+    comments = _format_number(item.get("comments", 0))
+    score = item.get("score", 0.0)
+    url = item.get("url", "")
+    duration = _duration_str(item.get("duration", 0))
+    content_type = item.get("type", "video").capitalize()
+    description = item.get("description", "").strip() or "_No description provided._"
+    transcript = item.get("transcript", "Transcript not available").strip()
 
-    def _render(self, item: dict) -> str:
-        """Render item dict into the blueprint markdown template."""
-        date_str  = self._fmt_date(item.get("date"))
-        views     = self._fmt_number(item.get("views", 0))
-        likes     = self._fmt_number(item.get("likes", 0))
-        comments  = self._fmt_number(item.get("comments", 0))
-        score     = f"{item.get('score', 0.0):.4f}"
-        url       = item.get("url", "")
-        title     = item.get("title", "Untitled")
-        desc      = item.get("description") or "_No description provided._"
-        transcript= item.get("transcript") or "Transcript not available"
-        duration  = self._fmt_duration(item.get("duration", 0))
-        ctype     = item.get("type", "video").capitalize()
+    # Score breakdown block
+    components = item.get("_score_components", {})
+    breakdown_lines = ""
+    if components:
+        breakdown_lines = (
+            "\n"
+            f"  - Views (normalized): {components.get('norm_views', 0):.4f}\n"
+            f"  - Likes (normalized): {components.get('norm_likes', 0):.4f}\n"
+            f"  - Comments (normalized): {components.get('norm_comments', 0):.4f}\n"
+            f"  - Engagement rate: {components.get('engagement_rate', 0):.6f}\n"
+            f"  - Engagement (normalized): {components.get('norm_engagement', 0):.4f}"
+        )
 
-        return f"""# {title}
+    return f"""# {title}
 
-- **Type:** {ctype}
-- **Date:** {date_str}
-- **Duration:** {duration}
-- **Views:** {views}
-- **Likes:** {likes}
-- **Comments:** {comments}
-- **Score:** {score}
-- **URL:** {url}
+## Metadata
+
+| Field | Value |
+|-------|-------|
+| **Date** | {date_str} |
+| **Type** | {content_type} |
+| **Duration** | {duration} |
+| **Views** | {views} |
+| **Likes** | {likes} |
+| **Comments** | {comments} |
+| **Performance Score** | `{score:.6f}` |
+| **URL** | {url} |
+
+### Score Breakdown
+{breakdown_lines}
 
 ---
 
 ## Description
 
-{desc}
+{description}
 
 ---
 
@@ -105,59 +123,57 @@ class MarkdownWriter:
 {transcript}
 """
 
-    def _make_filename(self, item: dict) -> str:
-        """
-        Generate a safe, unique filename from title + date.
-        Example: what-is-erp-software-here-is-everything-you-need-to-know-2020-08-03.md
-        """
-        title = item.get("title", "untitled")
-        date  = self._fmt_date(item.get("date"))
 
-        slug = self._slugify(title)
-        base = f"{slug}-{date}"
+def write_item(item: dict, output_dir: str, dedup_tracker: Optional[set] = None) -> str:
+    """
+    Write a single VideoRecord to a markdown file.
 
-        # Ensure uniqueness
-        candidate = base
-        counter = 2
-        while candidate in self._used_filenames:
-            candidate = f"{base}-{counter}"
-            counter += 1
+    Returns the path of the written file.
+    Handles duplicate filenames by appending a counter.
+    """
+    os.makedirs(output_dir, exist_ok=True)
 
-        self._used_filenames.add(candidate)
-        return candidate + ".md"
+    if dedup_tracker is None:
+        dedup_tracker = set()
 
-    @staticmethod
-    def _slugify(text: str) -> str:
-        """Convert title to lowercase kebab-case, max MAX_FILENAME_LEN chars."""
-        text = text.lower()
-        text = re.sub(r"[^\w\s-]", "", text)        # remove special chars
-        text = re.sub(r"[\s_]+", "-", text)          # spaces → dashes
-        text = re.sub(r"-{2,}", "-", text)            # collapse multiple dashes
-        text = text.strip("-")
-        return text[:MAX_FILENAME_LEN]
+    base_name = _build_filename(item)
 
-    @staticmethod
-    def _fmt_date(date_obj) -> str:
-        if not date_obj:
-            return "unknown"
-        try:
-            return date_obj.strftime("%Y-%m-%d")
-        except Exception:
-            return str(date_obj)[:10]
+    # Deduplicate filenames
+    final_name = base_name
+    counter = 1
+    while final_name in dedup_tracker:
+        stem = base_name[:-3]  # remove .md
+        final_name = f"{stem}-{counter}.md"
+        counter += 1
 
-    @staticmethod
-    def _fmt_number(n) -> str:
-        try:
-            return f"{int(n):,}"
-        except (TypeError, ValueError):
-            return "0"
+    dedup_tracker.add(final_name)
+    filepath = os.path.join(output_dir, final_name)
 
-    @staticmethod
-    def _fmt_duration(seconds: int) -> str:
-        if not seconds:
-            return "Unknown"
-        m, s = divmod(int(seconds), 60)
-        h, m = divmod(m, 60)
-        if h:
-            return f"{h}h {m}m {s}s"
-        return f"{m}m {s}s"
+    content = _render_markdown(item)
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    logger.debug(f"Wrote: {filepath}")
+    return filepath
+
+
+def write_all(
+    items: list[dict],
+    output_dir: str,
+    progress_callback=None,
+) -> list[str]:
+    """Write all items to markdown files. Returns list of written paths."""
+    os.makedirs(output_dir, exist_ok=True)
+    dedup_tracker = set()
+    written_paths = []
+    total = len(items)
+
+    for idx, item in enumerate(items, 1):
+        if progress_callback:
+            progress_callback(idx, total, item.get("title", ""))
+        path = write_item(item, output_dir, dedup_tracker)
+        written_paths.append(path)
+
+    logger.info(f"Wrote {len(written_paths)} files to: {output_dir}")
+    return written_paths

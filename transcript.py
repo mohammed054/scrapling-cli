@@ -1,208 +1,152 @@
 """
-transcript.py — Transcript extraction with fallback chain.
+transcript.py — Transcript extraction with multi-tier fallback.
 
 Priority:
-  1. youtube-transcript-api (official captions, auto-generated, multi-lang)
-  2. Graceful "not available" message
-
-Handles: missing transcripts, private videos, language fallbacks, retries.
+  1. youtube-transcript-api (preferred — clean, formatted)
+  2. yt-dlp subtitle extraction
+  3. "Transcript not available"
 """
 
 import logging
+import re
 import time
 from typing import Optional
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-# Languages to try, in priority order
-LANG_PRIORITY = ["en", "en-US", "en-GB", "en-AU"]
+_TRANSCRIPT_API_AVAILABLE = False
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
+    _TRANSCRIPT_API_AVAILABLE = True
+except ImportError:
+    logger.warning("youtube-transcript-api not installed; falling back to yt-dlp subtitles only.")
 
-# Retry settings
-MAX_RETRIES = 3
-RETRY_DELAY = 2.0   # seconds
+
+def _clean_transcript_text(text: str) -> str:
+    """Remove duplicate lines, excessive whitespace, and VTT artifacts."""
+    lines = text.splitlines()
+    seen = set()
+    clean = []
+    for line in lines:
+        line = line.strip()
+        # Skip VTT timing lines and tags
+        if re.match(r"^\d{2}:\d{2}|^WEBVTT|^Kind:|^Language:|^<\d", line):
+            continue
+        line = re.sub(r"<[^>]+>", "", line)  # strip HTML tags
+        line = re.sub(r"\s+", " ", line).strip()
+        if line and line not in seen:
+            seen.add(line)
+            clean.append(line)
+    return " ".join(clean)
 
 
-class TranscriptFetcher:
-    """
-    Fetches transcripts for YouTube videos.
-    Tries official captions first (manual, then auto-generated).
-    Falls back to a placeholder if nothing is available.
-    """
+def _fetch_via_transcript_api(video_id: str) -> Optional[str]:
+    """Attempt transcript fetch using youtube-transcript-api."""
+    if not _TRANSCRIPT_API_AVAILABLE:
+        return None
+    try:
+        # Prefer English; fall back to auto-generated; fall back to any available
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript = None
 
-    def __init__(self):
-        self._api_available = self._check_api()
+        try:
+            transcript = transcript_list.find_manually_created_transcript(["en", "en-US", "en-GB"])
+        except Exception:
+            pass
 
-    def get(self, url: str, video_id: str) -> str:
-        """
-        Public method: return transcript text for a video.
-        Always returns a string (never raises).
-        """
-        if not video_id:
-            video_id = self._extract_id(url)
-
-        if not video_id:
-            return "Transcript not available (could not determine video ID)"
-
-        if self._api_available:
-            result = self._fetch_with_api(video_id)
-            if result:
-                return result
-
-        return "Transcript not available"
-
-    # ------------------------------------------------------------------
-    # Primary: youtube-transcript-api
-    # ------------------------------------------------------------------
-
-    def _fetch_with_api(self, video_id: str) -> Optional[str]:
-        """Try youtube-transcript-api with retries."""
-        from youtube_transcript_api import (
-            YouTubeTranscriptApi,
-            NoTranscriptFound,
-            TranscriptsDisabled,
-            VideoUnavailable,
-        )
-
-        for attempt in range(1, MAX_RETRIES + 1):
+        if transcript is None:
             try:
-                # List available transcripts
-                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                transcript = transcript_list.find_generated_transcript(["en", "en-US"])
+            except Exception:
+                pass
 
-                # Try manual transcripts first (higher quality)
-                transcript = self._try_manual(transcript_list)
-
-                # Fall back to auto-generated
-                if not transcript:
-                    transcript = self._try_auto(transcript_list)
-
-                if transcript:
-                    raw = transcript.fetch()
-                    return self._format_transcript(raw)
-
-                log.debug(f"No usable transcript for {video_id}")
-                return None
-
-            except (NoTranscriptFound, TranscriptsDisabled):
-                log.debug(f"Transcripts disabled or not found for {video_id}")
-                return None
-
-            except VideoUnavailable:
-                log.debug(f"Video unavailable: {video_id}")
-                return None
-
-            except Exception as e:
-                log.warning(f"Transcript attempt {attempt}/{MAX_RETRIES} failed for {video_id}: {e}")
-                if attempt < MAX_RETRIES:
-                    time.sleep(RETRY_DELAY * attempt)
-                else:
-                    return None
-
-    def _try_manual(self, transcript_list) -> Optional[object]:
-        """Try to get a manual transcript in preferred language order."""
-        try:
-            return transcript_list.find_manually_created_transcript(LANG_PRIORITY)
-        except Exception:
-            pass
-
-        try:
-            # Any manual transcript
+        if transcript is None:
+            # Just grab whatever is available first
             for t in transcript_list:
-                if not t.is_generated:
-                    return t
-        except Exception:
-            pass
+                transcript = t
+                break
 
+        if transcript is None:
+            return None
+
+        data = transcript.fetch()
+        text = " ".join(entry["text"] for entry in data)
+        return _clean_transcript_text(text)
+
+    except Exception as e:
+        logger.debug(f"transcript-api failed for {video_id}: {e}")
         return None
 
-    def _try_auto(self, transcript_list) -> Optional[object]:
-        """Try to get an auto-generated transcript in preferred language order."""
-        try:
-            return transcript_list.find_generated_transcript(LANG_PRIORITY)
-        except Exception:
-            pass
 
-        try:
-            # Any auto-generated transcript
-            for t in transcript_list:
-                if t.is_generated:
-                    return t
-        except Exception:
-            pass
+def _fetch_via_yt_dlp(video_url: str) -> Optional[str]:
+    """Fallback: extract subtitles using yt-dlp."""
+    try:
+        import yt_dlp
+        import os
+        import tempfile
 
-        # Last resort: any transcript, translate to English
-        try:
-            for t in transcript_list:
-                return t.translate("en")
-        except Exception:
-            pass
+        with tempfile.TemporaryDirectory() as tmpdir:
+            opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "skip_download": True,
+                "writesubtitles": True,
+                "writeautomaticsub": True,
+                "subtitleslangs": ["en", "en-US"],
+                "subtitlesformat": "vtt",
+                "outtmpl": os.path.join(tmpdir, "sub"),
+                "ignoreerrors": True,
+            }
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([video_url])
 
-        return None
+            for fname in os.listdir(tmpdir):
+                if fname.endswith(".vtt"):
+                    with open(os.path.join(tmpdir, fname), "r", encoding="utf-8", errors="ignore") as f:
+                        raw = f.read()
+                    cleaned = _clean_transcript_text(raw)
+                    if cleaned:
+                        return cleaned
 
-    # ------------------------------------------------------------------
-    # Formatting
-    # ------------------------------------------------------------------
+    except Exception as e:
+        logger.debug(f"yt-dlp subtitle fallback failed for {video_url}: {e}")
+    return None
 
-    @staticmethod
-    def _format_transcript(raw: list) -> str:
-        """
-        Convert list of {text, start, duration} dicts into readable paragraphs.
-        Groups into ~120-second chunks for readability.
-        """
-        if not raw:
-            return "Transcript not available"
 
-        chunks = []
-        current_chunk = []
-        chunk_start = 0.0
-        CHUNK_SECONDS = 120
+def fetch_transcript(video_id: str, video_url: str, retries: int = 2) -> str:
+    """
+    Fetch transcript for a video with full fallback chain.
+    Returns clean text or 'Transcript not available'.
+    """
+    for attempt in range(1, retries + 1):
+        # ── Tier 1: youtube-transcript-api ──
+        result = _fetch_via_transcript_api(video_id)
+        if result:
+            logger.debug(f"Transcript via transcript-api: {video_id}")
+            return result
 
-        for segment in raw:
-            text  = segment.get("text", "").strip()
-            start = segment.get("start", 0)
+        # ── Tier 2: yt-dlp subtitles ──
+        result = _fetch_via_yt_dlp(video_url)
+        if result:
+            logger.debug(f"Transcript via yt-dlp subtitles: {video_id}")
+            return result
 
-            if not text:
-                continue
+        if attempt < retries:
+            logger.debug(f"Transcript attempt {attempt} failed for {video_id}, retrying…")
+            time.sleep(1)
 
-            if start - chunk_start >= CHUNK_SECONDS and current_chunk:
-                chunks.append(" ".join(current_chunk))
-                current_chunk = []
-                chunk_start = start
+    logger.debug(f"No transcript available: {video_id}")
+    return "Transcript not available"
 
-            current_chunk.append(text)
 
-        if current_chunk:
-            chunks.append(" ".join(current_chunk))
-
-        return "\n\n".join(chunks)
-
-    # ------------------------------------------------------------------
-    # Utilities
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _check_api() -> bool:
-        try:
-            import youtube_transcript_api  # noqa: F401
-            return True
-        except ImportError:
-            log.warning(
-                "youtube-transcript-api not installed. "
-                "Transcripts will be unavailable. "
-                "Run: pip install youtube-transcript-api"
-            )
-            return False
-
-    @staticmethod
-    def _extract_id(url: str) -> str:
-        """Extract video ID from a YouTube URL."""
-        import re
-        patterns = [
-            r"[?&]v=([a-zA-Z0-9_-]{11})",
-            r"youtu\.be/([a-zA-Z0-9_-]{11})",
-            r"shorts/([a-zA-Z0-9_-]{11})",
-        ]
-        for pattern in patterns:
-            m = re.search(pattern, url)
-            if m:
-                return m.group(1)
-        return ""
+def enrich_with_transcripts(
+    items: list[dict],
+    progress_callback=None,
+) -> list[dict]:
+    """Fetch and attach transcripts to a list of VideoRecord dicts (in-place)."""
+    total = len(items)
+    for idx, item in enumerate(items, 1):
+        if progress_callback:
+            progress_callback(idx, total, item.get("title", ""))
+        item["transcript"] = fetch_transcript(item["id"], item["url"])
+    return items

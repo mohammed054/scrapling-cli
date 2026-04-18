@@ -1,14 +1,6 @@
-# scrapling-cli requirements
-# Install with: pip install -r requirements.txt
-
-# Core YouTube data extraction
 yt-dlp>=2024.1.0
-
-# Transcript fetching
-youtube-transcript-api>=0.6.2
-
-# Data processing
+youtube-transcript-api>=0.6.0
 pandas>=2.0.0
-
-# Progress bar (optional but used internally)
-tqdm>=4.66.0
+numpy>=1.24.0
+rich>=13.0.0
+scrapling>=0.2.0
