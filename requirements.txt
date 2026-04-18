@@ -1,6 +1,13 @@
-yt-dlp>=2024.1.0
+# Core scraping engine
+scrapling[fetchers]>=0.4.0
+
+# Transcript extraction (direct API, no yt-dlp)
 youtube-transcript-api>=0.6.0
-pandas>=2.0.0
+
+# Scoring & data
 numpy>=1.24.0
+pandas>=2.0.0
+
+# CLI
 rich>=13.0.0
-scrapling>=0.2.0
+pyfiglet>=0.8.post1

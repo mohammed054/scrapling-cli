@@ -1,10 +1,14 @@
 """
-transcript.py — Transcript extraction with multi-tier fallback.
+transcript.py — Transcript extraction via youtube-transcript-api.
+
+No yt-dlp. The youtube-transcript-api calls YouTube's caption endpoint
+directly and is fast, clean, and reliable.
 
 Priority:
-  1. youtube-transcript-api (preferred — clean, formatted)
-  2. yt-dlp subtitle extraction
-  3. "Transcript not available"
+  1. Manually-created English transcript
+  2. Auto-generated English transcript
+  3. Any available transcript (auto-translated to English if needed)
+  4. "Transcript not available"
 """
 
 import logging
@@ -14,25 +18,31 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-_TRANSCRIPT_API_AVAILABLE = False
+_API_AVAILABLE = False
 try:
-    from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
-    _TRANSCRIPT_API_AVAILABLE = True
+    from youtube_transcript_api import (
+        YouTubeTranscriptApi,
+        TranscriptsDisabled,
+        NoTranscriptFound,
+    )
+    _API_AVAILABLE = True
 except ImportError:
-    logger.warning("youtube-transcript-api not installed; falling back to yt-dlp subtitles only.")
+    logger.warning(
+        "youtube-transcript-api not installed. "
+        "Install with: pip install youtube-transcript-api"
+    )
 
 
-def _clean_transcript_text(text: str) -> str:
-    """Remove duplicate lines, excessive whitespace, and VTT artifacts."""
+def _clean(text: str) -> str:
+    """Strip HTML tags, VTT artefacts, dedup blank lines."""
     lines = text.splitlines()
-    seen = set()
-    clean = []
+    seen: set[str] = set()
+    clean: list[str] = []
     for line in lines:
         line = line.strip()
-        # Skip VTT timing lines and tags
         if re.match(r"^\d{2}:\d{2}|^WEBVTT|^Kind:|^Language:|^<\d", line):
             continue
-        line = re.sub(r"<[^>]+>", "", line)  # strip HTML tags
+        line = re.sub(r"<[^>]+>", "", line)
         line = re.sub(r"\s+", " ", line).strip()
         if line and line not in seen:
             seen.add(line)
@@ -40,102 +50,58 @@ def _clean_transcript_text(text: str) -> str:
     return " ".join(clean)
 
 
-def _fetch_via_transcript_api(video_id: str) -> Optional[str]:
-    """Attempt transcript fetch using youtube-transcript-api."""
-    if not _TRANSCRIPT_API_AVAILABLE:
-        return None
-    try:
-        # Prefer English; fall back to auto-generated; fall back to any available
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        transcript = None
+def fetch_transcript(video_id: str, _video_url: str = "", retries: int = 2) -> str:
+    """
+    Fetch transcript for a video.
+    Returns clean text or 'Transcript not available'.
+    `_video_url` is accepted for API-compatibility but unused here.
+    """
+    if not _API_AVAILABLE:
+        return "Transcript not available (youtube-transcript-api not installed)"
 
+    for attempt in range(1, retries + 1):
         try:
-            transcript = transcript_list.find_manually_created_transcript(["en", "en-US", "en-GB"])
-        except Exception:
-            pass
+            tl = YouTubeTranscriptApi.list_transcripts(video_id)
+            transcript = None
 
-        if transcript is None:
+            # 1. Manual English
             try:
-                transcript = transcript_list.find_generated_transcript(["en", "en-US"])
+                transcript = tl.find_manually_created_transcript(["en", "en-US", "en-GB"])
             except Exception:
                 pass
 
-        if transcript is None:
-            # Just grab whatever is available first
-            for t in transcript_list:
-                transcript = t
-                break
+            # 2. Auto-generated English
+            if transcript is None:
+                try:
+                    transcript = tl.find_generated_transcript(["en", "en-US"])
+                except Exception:
+                    pass
 
-        if transcript is None:
-            return None
+            # 3. Any available (translate to English)
+            if transcript is None:
+                for t in tl:
+                    try:
+                        transcript = t.translate("en")
+                    except Exception:
+                        transcript = t
+                    break
 
-        data = transcript.fetch()
-        text = " ".join(entry["text"] for entry in data)
-        return _clean_transcript_text(text)
+            if transcript is None:
+                return "Transcript not available"
 
-    except Exception as e:
-        logger.debug(f"transcript-api failed for {video_id}: {e}")
-        return None
+            entries = transcript.fetch()
+            raw = " ".join(e["text"] for e in entries)
+            cleaned = _clean(raw)
+            logger.debug(f"Transcript fetched: {video_id} ({len(cleaned)} chars)")
+            return cleaned if cleaned else "Transcript not available"
 
+        except (TranscriptsDisabled, NoTranscriptFound):
+            return "Transcript not available"
+        except Exception as e:
+            logger.debug(f"Transcript attempt {attempt} failed for {video_id}: {e}")
+            if attempt < retries:
+                time.sleep(1.5)
 
-def _fetch_via_yt_dlp(video_url: str) -> Optional[str]:
-    """Fallback: extract subtitles using yt-dlp."""
-    try:
-        import yt_dlp
-        import os
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "skip_download": True,
-                "writesubtitles": True,
-                "writeautomaticsub": True,
-                "subtitleslangs": ["en", "en-US"],
-                "subtitlesformat": "vtt",
-                "outtmpl": os.path.join(tmpdir, "sub"),
-                "ignoreerrors": True,
-            }
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([video_url])
-
-            for fname in os.listdir(tmpdir):
-                if fname.endswith(".vtt"):
-                    with open(os.path.join(tmpdir, fname), "r", encoding="utf-8", errors="ignore") as f:
-                        raw = f.read()
-                    cleaned = _clean_transcript_text(raw)
-                    if cleaned:
-                        return cleaned
-
-    except Exception as e:
-        logger.debug(f"yt-dlp subtitle fallback failed for {video_url}: {e}")
-    return None
-
-
-def fetch_transcript(video_id: str, video_url: str, retries: int = 2) -> str:
-    """
-    Fetch transcript for a video with full fallback chain.
-    Returns clean text or 'Transcript not available'.
-    """
-    for attempt in range(1, retries + 1):
-        # ── Tier 1: youtube-transcript-api ──
-        result = _fetch_via_transcript_api(video_id)
-        if result:
-            logger.debug(f"Transcript via transcript-api: {video_id}")
-            return result
-
-        # ── Tier 2: yt-dlp subtitles ──
-        result = _fetch_via_yt_dlp(video_url)
-        if result:
-            logger.debug(f"Transcript via yt-dlp subtitles: {video_id}")
-            return result
-
-        if attempt < retries:
-            logger.debug(f"Transcript attempt {attempt} failed for {video_id}, retrying…")
-            time.sleep(1)
-
-    logger.debug(f"No transcript available: {video_id}")
     return "Transcript not available"
 
 
@@ -143,10 +109,10 @@ def enrich_with_transcripts(
     items: list[dict],
     progress_callback=None,
 ) -> list[dict]:
-    """Fetch and attach transcripts to a list of VideoRecord dicts (in-place)."""
+    """Attach transcripts to a list of VideoRecord dicts (in-place)."""
     total = len(items)
     for idx, item in enumerate(items, 1):
         if progress_callback:
             progress_callback(idx, total, item.get("title", ""))
-        item["transcript"] = fetch_transcript(item["id"], item["url"])
+        item["transcript"] = fetch_transcript(item["id"], item.get("url", ""))
     return items

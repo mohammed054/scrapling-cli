@@ -1,5 +1,5 @@
 """
-filter.py — Date range filtering for video records.
+filter.py — Date-range filtering for VideoRecord lists.
 """
 
 import logging
@@ -15,34 +15,28 @@ def filter_by_date(
     to_date: Optional[date],
 ) -> list[dict]:
     """
-    Keep only items whose upload date falls within [from_date, to_date].
-    If either bound is None, that bound is open-ended.
-    Items with no date are kept (can't exclude what we don't know).
+    Keep items whose upload date falls within [from_date, to_date].
+    Open-ended if either bound is None.
+    Items with no date are kept (we can't exclude what we don't know).
     """
     if from_date is None and to_date is None:
         return items
 
-    filtered = []
-    excluded = 0
-
+    kept, excluded = [], 0
     for item in items:
         d = item.get("date")
         if d is None:
-            # Keep date-unknown items
-            filtered.append(item)
+            kept.append(item)
             continue
-
         if from_date and d < from_date:
             excluded += 1
             continue
         if to_date and d > to_date:
             excluded += 1
             continue
-
-        filtered.append(item)
+        kept.append(item)
 
     logger.info(
-        f"Date filter [{from_date} → {to_date}]: "
-        f"{len(filtered)} kept, {excluded} excluded"
+        f"Date filter [{from_date} → {to_date}]: {len(kept)} kept, {excluded} excluded"
     )
-    return filtered
+    return kept
