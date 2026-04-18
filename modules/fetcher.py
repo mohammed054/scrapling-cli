@@ -146,6 +146,7 @@ def fetch_channel_videos(
     channel_input: str,
     top_percent: float = 15.0,
     cookies_file: Optional[str] = None,
+    fetch_comments: int = 0,
     progress_callback: Optional[Callable] = None,
 ) -> tuple[list[dict], str]:
     """
@@ -187,6 +188,11 @@ def fetch_channel_videos(
     # ── PHASE 2: Pre-filter → full metadata for candidates only ──────────────
     candidates = _prefilter_candidates(unique_entries, top_percent)
     full_opts = _build_ydl_opts(cookies_file, flat=False)
+    if fetch_comments > 0:
+        full_opts["getcomments"] = True
+        full_opts["extractor_args"] = {
+            "youtube": {"max_comments": [str(fetch_comments), "0", "0", "0"]}
+        }
     videos: list[dict] = []
     total = len(candidates)
 
