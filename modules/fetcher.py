@@ -1,21 +1,31 @@
 """
 fetcher.py — YouTube channel data extraction via yt-dlp
-Extracts ALL videos and shorts with full metadata.
+
+TWO-PHASE STRATEGY (fast):
+  Phase 1: Flat-scan ALL videos (fast playlist scan, no per-video requests)
+           → gets view_count from playlist page for free
+  Phase 2: Pre-filter to top (percent * CANDIDATE_MULTIPLIER) candidates by views
+           → full metadata fetch ONLY for those candidates
+  Result:  5811 videos at top-15% → ~870 full fetches instead of 5811
 """
 
 import logging
 import time
-from typing import Optional
+from typing import Optional, Callable
 import yt_dlp
 
 logger = logging.getLogger(__name__)
 
+# Buffer multiplier: fetch 2.5x the target % so re-scoring with full
+# metrics (likes, comments, engagement) can still find the real top X%
+CANDIDATE_MULTIPLIER = 2.5
 
-def _build_ydl_opts(cookies_file: Optional[str] = None) -> dict:
+
+def _build_ydl_opts(cookies_file: Optional[str] = None, flat: bool = False) -> dict:
     opts = {
         "quiet": True,
         "no_warnings": True,
-        "extract_flat": False,
+        "extract_flat": flat,
         "ignoreerrors": True,
         "skip_download": True,
         "writesubtitles": False,
@@ -47,20 +57,67 @@ def resolve_channel_url(channel_input: str) -> str:
     return f"https://www.youtube.com/@{channel_input}"
 
 
-def get_channel_name(channel_url: str, cookies_file: Optional[str] = None) -> str:
-    """Extract channel name/handle for directory naming."""
-    opts = _build_ydl_opts(cookies_file)
-    opts["extract_flat"] = "in_playlist"
-    opts["playlistend"] = 1
+def _flat_scan_tab(
+    tab_url: str,
+    cookies_file: Optional[str],
+) -> tuple[list[dict], str]:
+    """
+    Fast flat scan of one channel tab.
+    Returns (entries, channel_name).
+    No per-video HTTP requests — reads playlist page only.
+    """
+    opts = _build_ydl_opts(cookies_file, flat=True)
+    channel_name = "unknown_channel"
+    entries = []
+    logger.info(f"Flat scanning: {tab_url}")
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(channel_url + "/videos", download=False)
-            if info:
-                uploader = info.get("uploader") or info.get("channel") or "unknown_channel"
-                return uploader.strip().replace(" ", "_").lower()
+            info = ydl.extract_info(tab_url, download=False)
+            if info and "entries" in info:
+                entries = [e for e in info["entries"] if e]
+                channel_name = (
+                    info.get("uploader")
+                    or info.get("channel")
+                    or "unknown_channel"
+                )
+                logger.info(f"  → Found {len(entries)} items")
     except Exception as e:
-        logger.warning(f"Could not resolve channel name: {e}")
-    return "unknown_channel"
+        logger.warning(f"Error scanning {tab_url}: {e}")
+    return entries, channel_name
+
+
+def _prefilter_candidates(entries: list[dict], target_percent: float) -> list[dict]:
+    """
+    Pre-filter flat entries to top candidates using view_count (available
+    from the playlist scan — no extra requests needed).
+
+    Keeps top (target_percent * CANDIDATE_MULTIPLIER)% by views as candidates.
+    Falls back to all entries if view data is sparse.
+    """
+    with_views = [e for e in entries if e.get("view_count") is not None]
+    without_views = [e for e in entries if e.get("view_count") is None]
+
+    if len(with_views) < len(entries) * 0.5:
+        logger.info(
+            f"Pre-filter skipped: only {len(with_views)}/{len(entries)} "
+            "entries have view_count in flat scan — fetching all"
+        )
+        return entries
+
+    # Sort by views descending, take top buffer%
+    with_views.sort(key=lambda e: e.get("view_count", 0), reverse=True)
+    candidate_count = max(
+        50,
+        min(len(entries), int(len(entries) * (target_percent / 100) * CANDIDATE_MULTIPLIER)),
+    )
+    candidates = with_views[:candidate_count] + without_views
+
+    saved = len(entries) - len(candidates)
+    logger.info(
+        f"Pre-filter: {len(entries)} total → {len(candidates)} candidates "
+        f"({saved} low-view videos skipped, saving ~{saved} HTTP requests)"
+    )
+    return candidates
 
 
 def fetch_video_metadata(
@@ -87,87 +144,72 @@ def fetch_video_metadata(
 
 def fetch_channel_videos(
     channel_input: str,
+    top_percent: float = 15.0,
     cookies_file: Optional[str] = None,
-    progress_callback=None,
+    progress_callback: Optional[Callable] = None,
 ) -> tuple[list[dict], str]:
     """
-    Fetch ALL videos and shorts from a channel.
+    Two-phase channel fetch:
+      1. Flat-scan all tabs (fast, no per-video requests)
+      2. Pre-filter by views → full fetch only top candidates
 
     Returns:
-        (list of raw video dicts, channel_name string)
+        (list of full metadata dicts, channel_name string)
     """
     channel_url = resolve_channel_url(channel_input)
     logger.info(f"Resolved channel URL: {channel_url}")
 
-    # ── Step 1: flat-fetch ALL video URLs from /videos and /shorts tabs ──
-    flat_opts = _build_ydl_opts(cookies_file)
-    flat_opts["extract_flat"] = True
-    flat_opts["ignoreerrors"] = True
-
-    all_entries = []
+    # ── PHASE 1: Fast flat scan ───────────────────────────────────────────────
+    all_entries: list[dict] = []
     channel_name = "unknown_channel"
-    tabs = ["/videos", "/shorts"]
 
-    for tab in tabs:
-        tab_url = channel_url + tab
-        logger.info(f"Scanning tab: {tab_url}")
-        try:
-            with yt_dlp.YoutubeDL(flat_opts) as ydl:
-                info = ydl.extract_info(tab_url, download=False)
-                if info and "entries" in info:
-                    entries = [e for e in info["entries"] if e]
-                    all_entries.extend(entries)
-                    if channel_name == "unknown_channel":
-                        channel_name = (
-                            info.get("uploader")
-                            or info.get("channel")
-                            or "unknown_channel"
-                        )
-                    logger.info(f"  → Found {len(entries)} items in {tab}")
-        except Exception as e:
-            logger.warning(f"Error scanning {tab_url}: {e}")
+    for tab in ["/videos", "/shorts"]:
+        entries, name = _flat_scan_tab(channel_url + tab, cookies_file)
+        all_entries.extend(entries)
+        if name != "unknown_channel":
+            channel_name = name
 
-    # Deduplicate by video ID
-    seen_ids = set()
-    unique_entries = []
+    # Deduplicate by ID
+    seen_ids: set[str] = set()
+    unique_entries: list[dict] = []
     for e in all_entries:
         vid_id = e.get("id") or e.get("url", "")
         if vid_id and vid_id not in seen_ids:
             seen_ids.add(vid_id)
             unique_entries.append(e)
 
-    logger.info(f"Total unique videos found: {len(unique_entries)}")
+    logger.info(f"Total unique entries: {len(unique_entries)}")
 
     if not unique_entries:
-        logger.warning("No videos found. The channel may be private or the URL is incorrect.")
-        return [], channel_name
+        logger.warning("No videos found. Check channel URL or use --cookies.")
+        return [], channel_name.strip().replace(" ", "_").lower()
 
-    # ── Step 2: fetch full metadata for each video ──
-    full_opts = _build_ydl_opts(cookies_file)
-    full_opts["extract_flat"] = False
+    # ── PHASE 2: Pre-filter → full metadata for candidates only ──────────────
+    candidates = _prefilter_candidates(unique_entries, top_percent)
+    full_opts = _build_ydl_opts(cookies_file, flat=False)
+    videos: list[dict] = []
+    total = len(candidates)
 
-    videos = []
-    total = len(unique_entries)
+    logger.info(f"Full metadata fetch: {total} candidates")
 
     with yt_dlp.YoutubeDL(full_opts) as ydl:
-        for idx, entry in enumerate(unique_entries, 1):
+        for idx, entry in enumerate(candidates, 1):
             vid_id = entry.get("id") or entry.get("url", "")
+            raw_url = entry.get("url", "")
             video_url = (
-                entry.get("url")
-                if entry.get("url", "").startswith("http")
+                raw_url if raw_url.startswith("http")
                 else f"https://www.youtube.com/watch?v={vid_id}"
             )
-
-            logger.debug(f"[{idx}/{total}] Fetching: {video_url}")
 
             if progress_callback:
                 progress_callback(idx, total, entry.get("title", video_url))
 
+            logger.debug(f"[{idx}/{total}] Fetching: {video_url}")
             meta = fetch_video_metadata(video_url, ydl)
             if meta:
                 videos.append(meta)
             else:
                 logger.warning(f"Skipped (no metadata): {video_url}")
 
-    logger.info(f"Successfully fetched metadata for {len(videos)} videos")
+    logger.info(f"Successfully fetched full metadata for {len(videos)} videos")
     return videos, channel_name.strip().replace(" ", "_").lower()

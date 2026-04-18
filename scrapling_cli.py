@@ -247,6 +247,7 @@ def main():
 
         raw_videos, channel_name = fetch_channel_videos(
             args.channel,
+            top_percent=args.top_percent,
             cookies_file=args.cookies,
             progress_callback=fetch_cb,
         )
