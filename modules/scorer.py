@@ -65,10 +65,17 @@ def score_items(
     use_recency_decay: bool = False,
     clamp_outliers: bool = True,
     outlier_percentile: float = 95,
+    rank_by: str = "weighted",
 ) -> list[dict]:
     """
     Compute and attach performance scores to a list of VideoRecord dicts.
     Returns the list sorted descending by score.
+
+    rank_by options:
+      'weighted'   — full formula (default)
+      'views'      — pure view count (normalized)
+      'engagement' — (likes + comments) / views
+      'likes'      — pure like count (normalized)
     """
     if not items:
         return items
@@ -78,7 +85,7 @@ def score_items(
     likes_raw = [float(v["likes"]) for v in items]
     comments_raw = [float(v["comments"]) for v in items]
 
-    # Outlier clamping (95th pct)
+    # Outlier clamping
     if clamp_outliers and len(items) >= 5:
         views_raw = _percentile_clamp(views_raw, outlier_percentile)
         likes_raw = _percentile_clamp(likes_raw, outlier_percentile)
@@ -89,28 +96,32 @@ def score_items(
     norm_likes = _normalize(likes_raw)
     norm_comments = _normalize(comments_raw)
 
-    # Raw engagement rates, then normalize them too
     eng_rates = [
         _engagement_rate(v["likes"], v["comments"], v["views"]) for v in items
     ]
     norm_engagement = _normalize(eng_rates)
 
-    # Compute final scores
     for i, item in enumerate(items):
-        raw_score = (
-            W_VIEWS * norm_views[i]
-            + W_LIKES * norm_likes[i]
-            + W_COMMENTS * norm_comments[i]
-            + W_ENGAGEMENT * norm_engagement[i]
-        )
+        if rank_by == "views":
+            raw_score = norm_views[i]
+        elif rank_by == "likes":
+            raw_score = norm_likes[i]
+        elif rank_by == "engagement":
+            raw_score = norm_engagement[i]
+        else:  # weighted (default)
+            raw_score = (
+                W_VIEWS * norm_views[i]
+                + W_LIKES * norm_likes[i]
+                + W_COMMENTS * norm_comments[i]
+                + W_ENGAGEMENT * norm_engagement[i]
+            )
 
         if use_recency_decay:
-            decay = _recency_decay(item.get("date"))
-            raw_score *= decay
+            raw_score *= _recency_decay(item.get("date"))
 
         item["score"] = round(raw_score, 6)
-        # Also store component breakdowns for transparency
         item["_score_components"] = {
+            "rank_by": rank_by,
             "norm_views": round(norm_views[i], 4),
             "norm_likes": round(norm_likes[i], 4),
             "norm_comments": round(norm_comments[i], 4),
@@ -118,13 +129,10 @@ def score_items(
             "norm_engagement": round(norm_engagement[i], 4),
         }
 
-    # Sort descending
     items.sort(key=lambda x: x["score"], reverse=True)
-
     logger.info(
-        f"Scored {len(items)} items. "
-        f"Top score: {items[0]['score']:.4f} | "
-        f"Bottom score: {items[-1]['score']:.4f}"
+        f"Scored {len(items)} items [{rank_by}]. "
+        f"Top: {items[0]['score']:.4f} | Bottom: {items[-1]['score']:.4f}"
     )
     return items
 

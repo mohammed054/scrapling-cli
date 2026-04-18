@@ -107,6 +107,15 @@ Examples:
 
     # ── Scoring options ──
     parser.add_argument(
+        "--rank-by",
+        choices=["weighted", "views", "engagement", "likes"],
+        default="weighted",
+        help=(
+            "Scoring method: 'weighted' (default), 'views' (pure views), "
+            "'engagement' (likes+comments/views), 'likes' (pure likes)"
+        ),
+    )
+    parser.add_argument(
         "--recency-decay",
         action="store_true",
         default=False,
@@ -290,6 +299,7 @@ def main():
             videos,
             use_recency_decay=args.recency_decay,
             clamp_outliers=args.clamp_outliers,
+            rank_by=args.rank_by,
         )
         top_videos = select_top_percent(scored_videos, args.top_percent)
         console.print(f"[green]✓[/green] Top {args.top_percent}% videos: [bold]{len(top_videos)}[/bold]")
@@ -300,6 +310,7 @@ def main():
             shorts,
             use_recency_decay=args.recency_decay,
             clamp_outliers=args.clamp_outliers,
+            rank_by=args.rank_by,
         )
         top_shorts = select_top_percent(scored_shorts, args.top_percent)
         console.print(f"[green]✓[/green] Top {args.top_percent}% shorts: [bold]{len(top_shorts)}[/bold]")
