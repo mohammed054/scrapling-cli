@@ -9,3 +9,6 @@ build/
 .venv/
 venv/
 *.log
+.cache/
+.pytest_cache/
+.codex/

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scrapling-cli"
+version = "0.2.0"
+description = "Transcript-aware YouTube channel analyzer and incremental fetcher"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "scrapling[fetchers]>=0.4.0",
+  "youtube-transcript-api>=1.2.4",
+  "yt-dlp>=2024.12.13",
+  "openai>=1.30.0",
+  "imageio-ffmpeg>=0.5.1",
+  "rich>=13.0.0",
+  "pyfiglet>=0.8.post1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+]
+
+[project.scripts]
+scrapling-cli = "scrapling_cli.cli:main"
+scrapling-fetch-new = "scrapling_cli.fetch_new_cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+  "live: opt-in live smoke tests that hit external providers",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
