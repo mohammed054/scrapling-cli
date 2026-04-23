@@ -9,6 +9,8 @@ from scrapling_cli.models import ContentItem, TranscriptOptions, TranscriptResul
 from scrapling_cli.transcripts.backends import (
     OpenAIAsrBackend,
     RetryableTranscriptError,
+    TranscriptBackendError,
+    YouTubeTranscriptApiBackend,
     YtDlpSubtitleBackend,
 )
 from scrapling_cli.transcripts.cache import TranscriptCache
@@ -192,3 +194,149 @@ def test_openai_asr_backend_merges_chunks(monkeypatch, tmp_path):
 @pytest.mark.live
 def test_live_smoke_suite():
     pytest.skip("Set SCRAPLING_RUN_LIVE_SMOKE=1 and provide stable live URLs before running.")
+
+
+# ---------------------------------------------------------------------------
+# v1.x exception handling — non-retryable errors must not be retried
+# ---------------------------------------------------------------------------
+
+class _FakeCouldNotRetrieveTranscript(Exception):
+    """Minimal stand-in for youtube_transcript_api.CouldNotRetrieveTranscript."""
+
+
+class _FakePoTokenRequired(_FakeCouldNotRetrieveTranscript):
+    """Minimal stand-in for youtube_transcript_api.PoTokenRequired."""
+
+
+class _FakeIpBlocked(_FakeCouldNotRetrieveTranscript):
+    """Minimal stand-in for youtube_transcript_api.IpBlocked."""
+
+
+def test_non_retryable_error_not_retried_falls_through_to_next_backend(tmp_path, monkeypatch):
+    """IpBlocked (CouldNotRetrieveTranscript subclass) must raise TranscriptBackendError,
+    not RetryableTranscriptError, so the service tries yt-dlp without extra retries."""
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path)
+
+    # Patch _load_transcript_api_exceptions to return our fake hierarchy
+    import scrapling_cli.transcripts.backends as _backends_mod
+    monkeypatch.setattr(
+        _backends_mod,
+        "_load_transcript_api_exceptions",
+        lambda: (_FakeCouldNotRetrieveTranscript, _FakePoTokenRequired),
+    )
+
+    yta_backend = YouTubeTranscriptApiBackend()
+    # Make _get_api() return an object whose .list() raises IpBlocked
+    class _FakeApi:
+        def list(self, video_id):
+            raise _FakeIpBlocked("Your IP has been blocked")
+    yta_backend._api = _FakeApi()
+
+    fallback = FakeBackend(
+        "yt_dlp",
+        TranscriptResult.available(source="yt_dlp_auto_subtitle", text="fallback text", language="en", backend_fingerprint="b"),
+    )
+
+    service = TranscriptService(options, backends=[yta_backend, fallback], cache=TranscriptCache(tmp_path))
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    result = service.resolve_item(item)
+
+    # Should have fallen through to yt-dlp and succeeded
+    assert result.status == "available"
+    assert result.text == "fallback text"
+    # yt_dlp backend called exactly once (no extra retries on yta_backend's error)
+    assert fallback.calls == 1
+
+
+def test_non_retryable_error_raises_backend_error_not_retryable(monkeypatch):
+    """YouTubeTranscriptApiBackend.fetch() must raise TranscriptBackendError
+    (not RetryableTranscriptError) when api.list() raises CouldNotRetrieveTranscript."""
+    import scrapling_cli.transcripts.backends as _backends_mod
+    monkeypatch.setattr(
+        _backends_mod,
+        "_load_transcript_api_exceptions",
+        lambda: (_FakeCouldNotRetrieveTranscript, _FakePoTokenRequired),
+    )
+
+    backend = YouTubeTranscriptApiBackend()
+    class _FakeApi:
+        def list(self, video_id):
+            raise _FakeIpBlocked("blocked")
+    backend._api = _FakeApi()
+
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    options = TranscriptOptions(enabled=True)
+
+    with pytest.raises(TranscriptBackendError) as exc_info:
+        backend.fetch(item, options)
+
+    assert not isinstance(exc_info.value, RetryableTranscriptError), (
+        "IpBlocked must NOT become a RetryableTranscriptError"
+    )
+
+
+def test_po_token_required_is_non_retryable(monkeypatch):
+    """PoTokenRequired must also map to TranscriptBackendError."""
+    import scrapling_cli.transcripts.backends as _backends_mod
+    monkeypatch.setattr(
+        _backends_mod,
+        "_load_transcript_api_exceptions",
+        lambda: (_FakeCouldNotRetrieveTranscript, _FakePoTokenRequired),
+    )
+
+    backend = YouTubeTranscriptApiBackend()
+    class _FakeApi:
+        def list(self, video_id):
+            raise _FakePoTokenRequired("PO token required")
+    backend._api = _FakeApi()
+
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    options = TranscriptOptions(enabled=True)
+
+    with pytest.raises(TranscriptBackendError) as exc_info:
+        backend.fetch(item, options)
+
+    assert not isinstance(exc_info.value, RetryableTranscriptError)
+
+
+def test_genuine_network_error_is_still_retryable(monkeypatch):
+    """A plain network exception (e.g. ConnectionError) must still become
+    RetryableTranscriptError so the service retries with backoff."""
+    import scrapling_cli.transcripts.backends as _backends_mod
+    monkeypatch.setattr(
+        _backends_mod,
+        "_load_transcript_api_exceptions",
+        lambda: (_FakeCouldNotRetrieveTranscript, _FakePoTokenRequired),
+    )
+
+    backend = YouTubeTranscriptApiBackend()
+    class _FakeApi:
+        def list(self, video_id):
+            raise ConnectionResetError("connection reset by peer")
+    backend._api = _FakeApi()
+
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    options = TranscriptOptions(enabled=True)
+
+    with pytest.raises(RetryableTranscriptError):
+        backend.fetch(item, options)
+
+
+def test_non_retryable_backend_is_not_retried_by_service(tmp_path, monkeypatch):
+    """Service must call a backend that raises TranscriptBackendError exactly ONCE
+    (no retry loop), then continue to the next backend."""
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path)
+
+    non_retryable = FakeBackend("youtube_transcript_api", error=TranscriptBackendError("ip blocked"))
+    fallback = FakeBackend(
+        "yt_dlp",
+        TranscriptResult.available(source="yt_dlp_auto_subtitle", text="ok", language="en", backend_fingerprint="b"),
+    )
+
+    service = TranscriptService(options, backends=[non_retryable, fallback], cache=TranscriptCache(tmp_path))
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    result = service.resolve_item(item)
+
+    assert result.status == "available"
+    assert non_retryable.calls == 1  # NOT retried
+    assert fallback.calls == 1

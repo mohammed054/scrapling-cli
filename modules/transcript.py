@@ -19,12 +19,14 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 _API_AVAILABLE = False
+_yta_instance = None  # reuse a single instance across calls
 try:
     from youtube_transcript_api import (
         YouTubeTranscriptApi,
         TranscriptsDisabled,
         NoTranscriptFound,
     )
+    _yta_instance = YouTubeTranscriptApi()
     _API_AVAILABLE = True
 except ImportError:
     logger.warning(
@@ -61,7 +63,9 @@ def fetch_transcript(video_id: str, _video_url: str = "", retries: int = 2) -> s
 
     for attempt in range(1, retries + 1):
         try:
-            tl = YouTubeTranscriptApi.list_transcripts(video_id)
+            # youtube-transcript-api v0.6+ dropped the static list_transcripts()
+            # method — use an instance and call .list() instead.
+            tl = _yta_instance.list(video_id)
             transcript = None
 
             # 1. Manual English
@@ -90,7 +94,16 @@ def fetch_transcript(video_id: str, _video_url: str = "", retries: int = 2) -> s
                 return "Transcript not available"
 
             entries = transcript.fetch()
-            raw = " ".join(e["text"] for e in entries)
+            # v1.x returns Snippet objects (use .text attribute);
+            # older versions returned dicts (use ["text"]).  Handle both.
+            parts = []
+            for e in entries:
+                text = getattr(e, "text", None)
+                if text is None and isinstance(e, dict):
+                    text = e.get("text", "")
+                if text:
+                    parts.append(text)
+            raw = " ".join(parts)
             cleaned = _clean(raw)
             logger.debug(f"Transcript fetched: {video_id} ({len(cleaned)} chars)")
             return cleaned if cleaned else "Transcript not available"
