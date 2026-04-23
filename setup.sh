@@ -17,7 +17,7 @@ else
 fi
 
 # Activate and install
-echo "[2/3] Installing Python dependencies..."
+echo "[2/3] Installing Python package..."
 source venv/bin/activate
 pip install --upgrade pip -q
 pip install -r requirements.txt
