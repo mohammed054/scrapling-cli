@@ -69,8 +69,18 @@ def _render_transcript_section(item: ContentItem) -> str:
 
 
 def render_markdown(item: ContentItem, *, include_score_details: bool) -> str:
-    exact_date = output_date(item)
-    date_text = exact_date.strftime("%Y-%m-%d") if exact_date else "Unknown"
+    resolved_date = output_date(item)
+    published_relative = repair_text(item.published_relative).strip()
+    if resolved_date and item.upload_date:
+        date_text = resolved_date.strftime("%Y-%m-%d")
+    elif resolved_date and published_relative:
+        date_text = f"Approx. {resolved_date:%Y-%m-%d} ({published_relative})"
+    elif resolved_date:
+        date_text = f"Approx. {resolved_date:%Y-%m-%d}"
+    elif published_relative:
+        date_text = published_relative
+    else:
+        date_text = "Unknown"
     description = repair_text(item.description).strip() or "_No description provided._"
     thumbnail_block = f"![Thumbnail]({item.thumbnail})\n\n" if item.thumbnail else ""
 

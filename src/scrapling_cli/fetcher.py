@@ -28,6 +28,9 @@ INNERTUBE_CONTEXT = {
 }
 INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
 CANDIDATE_MULTIPLIER = 2.5
+WATCH_PAGE_SKIP_STEALTH_STATUSES = frozenset({403, 429})
+WATCH_PAGE_PLAIN_TIMEOUT = 8
+WATCH_PAGE_STEALTH_TIMEOUT = 10_000
 
 CHANNEL_HEADERS = {
     "User-Agent": (
@@ -149,7 +152,18 @@ def get_yt_initial_player(page: object) -> dict:
     return _find_json_blob(_get_raw_html(page), "ytInitialPlayerResponse") or {}
 
 
-def _fetch_page(url: str, *, retries: int = 3, use_stealth: bool = False) -> object | None:
+def _fetch_page(
+    url: str,
+    *,
+    retries: int = 3,
+    use_stealth: bool = False,
+    allow_stealth_fallback: bool = True,
+    plain_timeout: int | float = 30,
+    stealth_timeout: int | float = 30_000,
+    skip_stealth_on_statuses: frozenset[int] = frozenset(),
+    stealth_disable_resources: bool = False,
+    stealth_network_idle: bool = True,
+) -> object | None:
     if Fetcher is None or StealthyFetcher is None:
         raise FetcherError("scrapling is not installed")
     for attempt in range(1, retries + 1):
@@ -158,26 +172,50 @@ def _fetch_page(url: str, *, retries: int = 3, use_stealth: bool = False) -> obj
                 page = StealthyFetcher.fetch(
                     url,
                     headless=True,
-                    network_idle=True,
+                    disable_resources=stealth_disable_resources,
+                    network_idle=stealth_network_idle,
+                    load_dom=False,
+                    timeout=stealth_timeout,
+                    retries=1,
+                    retry_delay=0.25,
                     extra_headers=CHANNEL_HEADERS,
                 )
             else:
-                page = Fetcher.get(url, stealthy_headers=True, extra_headers=CHANNEL_HEADERS)
+                page = Fetcher.get(
+                    url,
+                    stealthy_headers=True,
+                    timeout=plain_timeout,
+                    extra_headers=CHANNEL_HEADERS,
+                )
 
-            if page and getattr(page, "status", 200) == 200:
+            status = getattr(page, "status", 200) if page else None
+            if page and status == 200:
                 html = _get_raw_html(page)
                 if "ytInitialData" in html or "ytInitialPlayerResponse" in html or len(html) > 50_000:
                     return page
                 logger.debug("fetcher.small_response url=%s size=%s", url, len(html))
             else:
-                logger.debug("fetcher.http_error url=%s status=%s", url, getattr(page, "status", "?"))
+                logger.debug("fetcher.http_error url=%s status=%s", url, status or "?")
+                if not use_stealth and status in skip_stealth_on_statuses:
+                    logger.info("fetcher.skip_stealth_fallback url=%s status=%s", url, status)
+                    return None
         except Exception as exc:  # noqa: BLE001
             logger.debug("fetcher.request_error url=%s attempt=%s error=%s", url, attempt, exc)
         if attempt < retries:
             time.sleep(2**attempt)
-    if not use_stealth:
+    if not use_stealth and allow_stealth_fallback:
         logger.info("fetcher.retry_with_stealth url=%s", url)
-        return _fetch_page(url, retries=2, use_stealth=True)
+        return _fetch_page(
+            url,
+            retries=1,
+            use_stealth=True,
+            allow_stealth_fallback=False,
+            plain_timeout=plain_timeout,
+            stealth_timeout=stealth_timeout,
+            skip_stealth_on_statuses=skip_stealth_on_statuses,
+            stealth_disable_resources=stealth_disable_resources,
+            stealth_network_idle=stealth_network_idle,
+        )
     return None
 
 
@@ -501,11 +539,20 @@ def _parse_subscribers(yt_data: dict) -> int:
     return 0
 
 
-def enrich_content_item(item: ContentItem, *, retries: int = 2) -> ContentItem:
+def enrich_content_item(item: ContentItem, *, retries: int = 1) -> ContentItem:
     if not item.url:
         return item
     for attempt in range(1, retries + 1):
-        page = _fetch_page(item.url)
+        page = _fetch_page(
+            item.url,
+            retries=1,
+            allow_stealth_fallback=True,
+            plain_timeout=WATCH_PAGE_PLAIN_TIMEOUT,
+            stealth_timeout=WATCH_PAGE_STEALTH_TIMEOUT,
+            skip_stealth_on_statuses=WATCH_PAGE_SKIP_STEALTH_STATUSES,
+            stealth_disable_resources=True,
+            stealth_network_idle=False,
+        )
         if not page:
             if attempt < retries:
                 time.sleep(2)
@@ -610,11 +657,15 @@ def fetch_channel_entries(
     channel_name = "unknown_channel"
     for tab in tabs:
         items, scraped_name = _scrape_tab(channel_url, tab)
+        resolved_channel_name = channel_name
+        if scraped_name and scraped_name != "unknown_channel":
+            resolved_channel_name = scraped_name
         for item in items:
             item.channel_url = channel_url
+            if resolved_channel_name and resolved_channel_name != "unknown_channel" and not item.channel:
+                item.channel = resolved_channel_name
         all_items.extend(items)
-        if scraped_name and scraped_name != "unknown_channel":
-            channel_name = scraped_name
+        channel_name = resolved_channel_name
 
     unique: list[ContentItem] = []
     seen_ids: set[str] = set()

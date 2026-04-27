@@ -116,12 +116,12 @@ def stable_sort(items: Iterable[ContentItem], *, score_first: bool) -> list[Cont
 
 
 def build_filename(item: ContentItem) -> str:
-    stamp = item.date.strftime("%Y-%m-%d") if item.date and item.upload_date else "no-date"
+    stamp = item.date.strftime("%Y-%m-%d") if item.date else "no-date"
     return f"{slugify(item.title)}-{stamp}.md"
 
 
 def output_date(item: ContentItem) -> Optional[date]:
-    return item.date if item.date and item.upload_date else None
+    return item.date
 
 
 def is_short(item: ContentItem) -> bool:
