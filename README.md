@@ -59,11 +59,20 @@ Useful transcript controls:
 
 If YouTube blocks the current IP, the transcript fields will still record the failure reason instead of collapsing to a generic message.
 
+The full-analysis report now records both:
+
+- `Unique items scraped`
+- `Candidate items scored`
+
+This matters because scoring runs against a prefiltered candidate pool for speed, while still making that pool size explicit in the output.
+
 ## Incremental Fetch
 
 ```bash
 python fetch_new.py \
-  --channels "https://www.youtube.com/ibmtechnology" \
+  --channels \
+  "https://www.youtube.com/ibmtechnology" \
+  "https://www.youtube.com/@Fireship" \
   --days-back 7 \
   --transcripts \
   --output-dir output_new \
@@ -71,6 +80,29 @@ python fetch_new.py \
 ```
 
 This flow fetches channel tabs, keeps only items newer than the stored run date, enriches the remaining items, resolves transcripts, and writes markdown under per-channel `videos/` and `shorts/` directories.
+
+For a ready-to-run multi-channel example, this repo ships with [`channels.daily.txt`](channels.daily.txt), which currently includes:
+
+- `https://www.youtube.com/ibmtechnology`
+- `https://www.youtube.com/@Fireship`
+
+## Automated Daily Runs
+
+For this Windows repo layout, the default daily runner is:
+
+```powershell
+.\auto_run.ps1
+```
+
+It reads channel URLs from `channels.daily.txt`, writes incremental output to `output_daily/`, and stores the rolling state in `state.daily.json`.
+
+To register a Task Scheduler job that runs every day at `7:00 AM`:
+
+```powershell
+.\register_daily_task.ps1 -Time 07:00
+```
+
+Edit `channels.daily.txt` to replace the two example channels with your real watch list.
 
 ## Output Layout
 
@@ -85,6 +117,12 @@ output/<channel_slug>/
   shorts/*.md
 ```
 
+`channel_report.md` now includes:
+
+- unique items scraped from the channel
+- candidate items that were actually scored after prefiltering
+- an engagement note when YouTube does not expose likes/comments for that run
+
 Incremental output:
 
 ```text
@@ -92,6 +130,24 @@ output_new/<channel_slug>/
   videos/*.md
   shorts/*.md
 ```
+
+## Daily Automation
+
+Windows PowerShell runner:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\auto_run.ps1
+```
+
+That script reads channel URLs from `channels.daily.txt`, fetches new items with transcripts enabled, writes output under `output_daily/`, updates `state.daily.json`, and stores a timestamped log under `logs/`.
+
+To register a daily Windows Task Scheduler job for `7:00 AM`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\register_daily_task.ps1 -Time 07:00
+```
+
+You can edit `channels.daily.txt` directly to swap in the delivery channels you actually want monitored.
 
 ## Tests
 

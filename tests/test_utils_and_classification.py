@@ -5,7 +5,7 @@ from datetime import date
 from scrapling_cli.classification import classify_all
 from scrapling_cli.fetcher import _find_json_blob, _renderer_to_item
 from scrapling_cli.models import ContentItem
-from scrapling_cli.utils import build_filename, slugify_channel_name
+from scrapling_cli.utils import build_filename, repair_text, slugify_channel_name
 
 
 def test_find_json_blob_handles_nested_braces_and_strings():
@@ -54,3 +54,10 @@ def test_build_filename_is_deterministic():
 
 def test_slugify_channel_name_is_stable():
     assert slugify_channel_name("IBM Technology") == "ibm_technology"
+
+
+def test_repair_text_fixes_common_mojibake_sequences():
+    repaired = repair_text(
+        "Use code here " + "\u00e2\u2020\u2019" + " now " + "\u00f0\u0178\u00a4\u201d"
+    )
+    assert repaired == "Use code here \u2192 now \U0001F914"
