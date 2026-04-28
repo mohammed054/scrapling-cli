@@ -24,7 +24,7 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
         default=".cache/scrapling-cli",
         help="Repo-local cache directory for transcripts and ASR artifacts",
     )
-    group.add_argument("--workers", type=int, default=2, help="Transcript worker count (default: 2)")
+    group.add_argument("--workers", type=int, default=1, help="Transcript worker count (default: 1)")
     group.add_argument(
         "--transcript-delay",
         type=float,

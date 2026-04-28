@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import threading
+import time
 import urllib.request
 
 import pytest
@@ -246,7 +248,7 @@ def test_openai_asr_backend_merges_chunks(monkeypatch, tmp_path):
         path.write_bytes(b"audio")
 
     monkeypatch.setattr(backend, "_require_dependencies", lambda: (DummyFFmpeg, DummyOpenAIClient, DummyYDL))
-    monkeypatch.setattr(backend, "_download_audio", lambda item, workdir, YoutubeDL: audio_path)
+    monkeypatch.setattr(backend, "_download_audio", lambda item, workdir, YoutubeDL, options: audio_path)
     monkeypatch.setattr(backend, "_normalize_audio", lambda input_path, output_path, ffmpeg_exe: normalized_path.write_bytes(b"norm"))
     monkeypatch.setattr(backend, "_chunk_audio", lambda normalized_path, ffmpeg_exe: [chunk_a, chunk_b])
 
@@ -298,7 +300,7 @@ def test_non_retryable_error_not_retried_falls_through_to_next_backend(tmp_path,
     class _FakeApi:
         def list(self, video_id):
             raise _FakeIpBlocked("Your IP has been blocked")
-    yta_backend._api = _FakeApi()
+    monkeypatch.setattr(yta_backend, "_get_api", lambda options: _FakeApi())
 
     fallback = FakeBackend(
         "yt_dlp",
@@ -330,7 +332,7 @@ def test_non_retryable_error_raises_backend_error_not_retryable(monkeypatch):
     class _FakeApi:
         def list(self, video_id):
             raise _FakeIpBlocked("blocked")
-    backend._api = _FakeApi()
+    monkeypatch.setattr(backend, "_get_api", lambda options: _FakeApi())
 
     item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
     options = TranscriptOptions(enabled=True)
@@ -356,7 +358,7 @@ def test_po_token_required_is_non_retryable(monkeypatch):
     class _FakeApi:
         def list(self, video_id):
             raise _FakePoTokenRequired("PO token required")
-    backend._api = _FakeApi()
+    monkeypatch.setattr(backend, "_get_api", lambda options: _FakeApi())
 
     item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
     options = TranscriptOptions(enabled=True)
@@ -381,7 +383,7 @@ def test_genuine_network_error_is_still_retryable(monkeypatch):
     class _FakeApi:
         def list(self, video_id):
             raise ConnectionResetError("connection reset by peer")
-    backend._api = _FakeApi()
+    monkeypatch.setattr(backend, "_get_api", lambda options: _FakeApi())
 
     item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
     options = TranscriptOptions(enabled=True)
@@ -425,3 +427,68 @@ def test_retryable_backoff_is_exponential(tmp_path, monkeypatch):
 
     assert result.status == "unavailable"
     assert sleeps == [1.0, 2.0, 4.0]
+
+
+def test_rate_limited_failure_extends_global_cooldown(tmp_path, monkeypatch):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=2, retry_attempts=2)
+    failing = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("HTTP Error 429: Too Many Requests"))
+    fallback = FakeBackend(
+        "yt_dlp",
+        TranscriptResult.available(source="yt_dlp_auto_subtitle", text="fallback", language="en", backend_fingerprint="b"),
+    )
+    service = TranscriptService(options, backends=[failing, fallback], cache=TranscriptCache(tmp_path))
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    sleeps = []
+
+    import scrapling_cli.transcripts.service as service_mod
+
+    clock = {"now": 0.0}
+
+    def _sleep(seconds):
+        sleeps.append(seconds)
+        clock["now"] += seconds
+
+    monkeypatch.setattr(service_mod.time, "sleep", _sleep)
+    monkeypatch.setattr(service_mod.time, "monotonic", lambda: clock["now"])
+
+    result = service.resolve_item(item)
+
+    assert result.status == "available"
+    assert sleeps == [15.0, 15.0]
+
+
+def test_resolve_many_serializes_backend_fetches(tmp_path):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, workers=3, request_delay_seconds=0)
+    concurrency = {"active": 0, "max_active": 0}
+    lock = threading.Lock()
+
+    class SerialProbeBackend:
+        name = "youtube_transcript_api"
+
+        def fingerprint(self, options):
+            return f"{self.name}:{options.language}"
+
+        def fetch(self, item, options):
+            with lock:
+                concurrency["active"] += 1
+                concurrency["max_active"] = max(concurrency["max_active"], concurrency["active"])
+            time.sleep(0.05)
+            with lock:
+                concurrency["active"] -= 1
+            return TranscriptResult.available(
+                source=self.name,
+                text=f"ok:{item.id}",
+                language="en",
+                backend_fingerprint=self.fingerprint(options),
+            )
+
+    service = TranscriptService(options, backends=[SerialProbeBackend()], cache=TranscriptCache(tmp_path))
+    items = [
+        ContentItem(id="a", title="A", url="https://youtube.com/watch?v=a"),
+        ContentItem(id="b", title="B", url="https://youtube.com/watch?v=b"),
+        ContentItem(id="c", title="C", url="https://youtube.com/watch?v=c"),
+    ]
+
+    service.resolve_many(items)
+
+    assert concurrency["max_active"] == 1

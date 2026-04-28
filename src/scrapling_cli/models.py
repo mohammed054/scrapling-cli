@@ -128,7 +128,7 @@ class TranscriptOptions:
     enabled: bool = False
     language: str = "en"
     cache_dir: Path = Path(".cache/scrapling-cli")
-    workers: int = 2
+    workers: int = 1
     request_delay_seconds: float = 2.0
     retry_attempts: int = 4
     allow_hosted_asr: Optional[bool] = None

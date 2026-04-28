@@ -4,7 +4,7 @@ param(
     [string]$OutputDir = "output_daily",
     [string]$StateFile = "state.daily.json",
     [string]$LogDir = "logs",
-    [int]$Workers = 2,
+    [int]$Workers = 1,
     [switch]$VerboseLogs
 )
 

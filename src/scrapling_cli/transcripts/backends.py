@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import urllib.request
 from pathlib import Path
+from threading import local
 from typing import Protocol
 
 from ..models import ContentItem, TranscriptOptions, TranscriptResult
@@ -40,10 +41,15 @@ class TranscriptBackend(Protocol):
 
 def _load_transcript_api_exceptions():
     try:
-        from youtube_transcript_api import CouldNotRetrieveTranscript, PoTokenRequired
+        from youtube_transcript_api import (
+            CouldNotRetrieveTranscript,
+            IpBlocked,
+            PoTokenRequired,
+            RequestBlocked,
+        )
     except ImportError:  # pragma: no cover - exercised in runtime environments without deps
         return tuple()
-    return CouldNotRetrieveTranscript, PoTokenRequired
+    return CouldNotRetrieveTranscript, PoTokenRequired, IpBlocked, RequestBlocked
 
 
 def _is_non_retryable_transcript_api_error(exc: Exception) -> bool:
@@ -95,27 +101,56 @@ def _browser_headers(options: TranscriptOptions) -> dict[str, str]:
     }
 
 
+def _yt_dlp_request_options(options: TranscriptOptions) -> dict:
+    request_delay = max(0.0, options.request_delay_seconds)
+    ydl_options = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "extractor_retries": max(1, options.retry_attempts),
+        "http_headers": _browser_headers(options),
+    }
+    if request_delay > 0:
+        ydl_options["sleep_interval_requests"] = request_delay
+        ydl_options["sleep_interval_subtitles"] = request_delay
+    return ydl_options
+
+
 class YouTubeTranscriptApiBackend:
     name = "youtube_transcript_api"
 
     def __init__(self) -> None:
-        self._api = None
+        self._thread_state = local()
 
-    def _get_api(self):
-        if self._api is not None:
-            return self._api
+    def _get_api(self, options: TranscriptOptions):
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
         except ImportError as exc:  # pragma: no cover - exercised in runtime environments without deps
             raise TranscriptBackendError("youtube-transcript-api not installed") from exc
-        self._api = YouTubeTranscriptApi()
-        return self._api
+        try:
+            from requests import Session
+        except ImportError:
+            return YouTubeTranscriptApi()
+
+        language = options.language or "en"
+        cached_api = getattr(self._thread_state, "api", None)
+        cached_language = getattr(self._thread_state, "language", None)
+        if cached_api is not None and cached_language == language:
+            return cached_api
+
+        session = Session()
+        session.headers.update(_browser_headers(options))
+        session.headers.update({"Connection": "close"})
+        api = YouTubeTranscriptApi(http_client=session)
+        self._thread_state.api = api
+        self._thread_state.language = language
+        return api
 
     def fingerprint(self, options: TranscriptOptions) -> str:
         return f"{self.name}:{','.join(options.normalized_language_preferences())}"
 
     def fetch(self, item: ContentItem, options: TranscriptOptions) -> TranscriptResult:
-        api = self._get_api()
+        api = self._get_api(options)
         languages = options.normalized_language_preferences()
         try:
             transcript_list = api.list(item.id)
@@ -194,12 +229,10 @@ class YtDlpSubtitleBackend:
             raise TranscriptBackendError("yt-dlp not installed") from exc
 
         ydl_options = {
-            "quiet": True,
-            "no_warnings": True,
             "skip_download": True,
             "noplaylist": True,
             "extract_flat": False,
-            "http_headers": _browser_headers(options),
+            **_yt_dlp_request_options(options),
         }
         with YoutubeDL(ydl_options) as ydl:
             try:
@@ -265,16 +298,14 @@ class OpenAIAsrBackend:
             raise TranscriptBackendError("OpenAI ASR dependencies not installed") from exc
         return imageio_ffmpeg, OpenAI, YoutubeDL
 
-    def _download_audio(self, item: ContentItem, workdir: Path, YoutubeDL) -> Path:
+    def _download_audio(self, item: ContentItem, workdir: Path, YoutubeDL, options: TranscriptOptions) -> Path:
         outtmpl = str(workdir / f"{item.id}.%(ext)s")
-        options = {
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
+        ydl_options = {
             "format": "bestaudio/best",
             "outtmpl": outtmpl,
+            **_yt_dlp_request_options(options),
         }
-        with YoutubeDL(options) as ydl:
+        with YoutubeDL(ydl_options) as ydl:
             try:
                 info = ydl.extract_info(item.url, download=True)
             except Exception as exc:  # noqa: BLE001
@@ -363,7 +394,7 @@ class OpenAIAsrBackend:
         ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
         with tempfile.TemporaryDirectory(prefix=f"scrapling-asr-{item.id}-") as temp_dir:
             workdir = Path(temp_dir)
-            downloaded = self._download_audio(item, workdir, YoutubeDL)
+            downloaded = self._download_audio(item, workdir, YoutubeDL, options)
             normalized = workdir / "normalized.mp3"
             self._normalize_audio(downloaded, normalized, ffmpeg_exe)
             chunks = self._chunk_audio(normalized, ffmpeg_exe)

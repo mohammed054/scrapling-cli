@@ -34,6 +34,18 @@ TRANSIENT_FAILURE_MARKERS = (
     "service unavailable",
 )
 
+RATE_LIMIT_FAILURE_MARKERS = (
+    "429",
+    "too many requests",
+    "rate limit",
+    "requestblocked",
+    "request blocked",
+    "ipblocked",
+    "ip blocked",
+    "not a bot",
+    "try again later",
+)
+
 
 class TranscriptService:
     def __init__(
@@ -47,6 +59,7 @@ class TranscriptService:
         self.cache = cache or TranscriptCache(options.cache_dir)
         self.backends = backends or self._default_backends()
         self._request_lock = Lock()
+        self._fetch_lock = Lock()
         self._next_request_at = 0.0
 
     def _default_backends(self) -> list[TranscriptBackend]:
@@ -66,8 +79,6 @@ class TranscriptService:
 
     def _pace_request(self, backend: TranscriptBackend, item: ContentItem) -> None:
         delay_seconds = max(0.0, self.options.request_delay_seconds)
-        if delay_seconds <= 0:
-            return
         with self._request_lock:
             now = time.monotonic()
             scheduled_at = max(now, self._next_request_at)
@@ -82,31 +93,68 @@ class TranscriptService:
             )
             time.sleep(sleep_for)
 
+    def _is_rate_limited_error(self, error: str) -> bool:
+        lowered = error.lower()
+        return any(marker in lowered for marker in RATE_LIMIT_FAILURE_MARKERS)
+
+    def _extend_rate_limit_cooldown(
+        self,
+        backend: TranscriptBackend,
+        item: ContentItem,
+        *,
+        attempt: int,
+        error: str,
+    ) -> bool:
+        if not error or not self._is_rate_limited_error(error):
+            return False
+        cooldown_seconds = max(
+            15.0,
+            max(1.0, self.options.request_delay_seconds) * (2 ** attempt),
+        )
+        with self._request_lock:
+            now = time.monotonic()
+            resume_at = now + cooldown_seconds
+            self._next_request_at = max(self._next_request_at, resume_at)
+        logger.warning(
+            "transcript.cooldown backend=%s video_id=%s attempt=%s cooldown_seconds=%.2f error=%s",
+            backend.name,
+            item.id,
+            attempt,
+            cooldown_seconds,
+            error,
+        )
+        return True
+
     def _with_retry(self, backend: TranscriptBackend, item: ContentItem) -> tuple[TranscriptResult, bool]:
         attempts = max(1, self.options.retry_attempts)
         backoff_base = max(1.0, self.options.request_delay_seconds)
         for attempt in range(1, attempts + 1):
             try:
-                self._pace_request(backend, item)
-                return backend.fetch(item, self.options), True
+                with self._fetch_lock:
+                    self._pace_request(backend, item)
+                    return backend.fetch(item, self.options), True
             except RetryableTranscriptError as exc:
+                error = str(exc)
+                cooled_down = self._extend_rate_limit_cooldown(backend, item, attempt=attempt, error=error)
                 logger.warning(
                     "transcript.retry backend=%s video_id=%s attempt=%s error=%s",
                     backend.name,
                     item.id,
                     attempt,
-                    exc,
+                    error,
                 )
                 if attempt >= attempts:
                     return (
                         TranscriptResult.unavailable(
                             source=backend.name,
                             language=self.options.language,
-                            error=str(exc),
+                            error=error,
                             backend_fingerprint=backend.fingerprint(self.options),
                         ),
                         False,
                     )
+                if cooled_down:
+                    continue
                 backoff_seconds = backoff_base * (2 ** (attempt - 1))
                 logger.info(
                     "transcript.backoff backend=%s video_id=%s attempt=%s sleep_seconds=%.2f",

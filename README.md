@@ -51,7 +51,7 @@ Useful transcript controls:
 ```bash
 --transcript-language en
 --cache-dir .cache/scrapling-cli
---workers 2
+--workers 1
 --transcript-delay 2.0
 --transcript-retries 4
 --allow-hosted-asr
@@ -59,7 +59,7 @@ Useful transcript controls:
 --asr-model gpt-4o-mini-transcribe
 ```
 
-Transcript fetching now spaces requests by default, retries retryable provider failures with exponential backoff, and avoids caching transient block responses such as `429` or `not a bot` challenges.
+Transcript fetching now keeps only one transcript network fetch in flight at a time by default, spaces requests, cools down after `429` or bot-block responses, retries retryable provider failures with exponential backoff, and avoids caching transient block responses such as `429` or `not a bot` challenges.
 
 If YouTube blocks the current IP, the transcript fields will still record the failure reason instead of collapsing to a generic message.
 
