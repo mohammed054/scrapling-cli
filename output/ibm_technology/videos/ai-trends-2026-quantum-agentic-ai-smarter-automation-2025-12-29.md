@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 385,851 | `0.3024` |
+| Views | 385,851 | `0.3003` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.108840`** |
+| **Final score** | | **`0.108097`** |
 
 > Ranked by: **weighted**
 ---

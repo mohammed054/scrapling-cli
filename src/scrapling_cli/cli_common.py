@@ -24,7 +24,19 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
         default=".cache/scrapling-cli",
         help="Repo-local cache directory for transcripts and ASR artifacts",
     )
-    group.add_argument("--workers", type=int, default=4, help="Transcript worker count (default: 4)")
+    group.add_argument("--workers", type=int, default=2, help="Transcript worker count (default: 2)")
+    group.add_argument(
+        "--transcript-delay",
+        type=float,
+        default=2.0,
+        help="Minimum delay in seconds between transcript requests across workers (default: 2.0)",
+    )
+    group.add_argument(
+        "--transcript-retries",
+        type=int,
+        default=4,
+        help="Retry attempts per transcript backend for retryable failures (default: 4)",
+    )
     hosted = group.add_mutually_exclusive_group()
     hosted.add_argument(
         "--allow-hosted-asr",
@@ -52,6 +64,8 @@ def build_transcript_options(args: Namespace) -> TranscriptOptions:
         language=args.transcript_language,
         cache_dir=Path(args.cache_dir),
         workers=max(1, args.workers),
+        request_delay_seconds=max(0.0, args.transcript_delay),
+        retry_attempts=max(1, args.transcript_retries),
         allow_hosted_asr=args.allow_hosted_asr,
         asr_model=args.asr_model,
     )

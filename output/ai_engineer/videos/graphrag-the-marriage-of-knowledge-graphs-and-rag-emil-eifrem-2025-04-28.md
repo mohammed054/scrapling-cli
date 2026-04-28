@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-04-28 (1 year ago) |
+| **Date** | 2025-04-28 |
 | **Type** | Video |
-| **Duration** | 19:15 |
-| **Views** | 258,973 |
+| **Duration** | 19:14 |
+| **Views** | 258,988 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=knDDGYHnnSI&pp=0gcJCdQKAYcqIYzv) |
 | **Category** | - |
 | **Language** | - |
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 258,973 | `0.9234` |
+| Views | 258,988 | `0.9227` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.169852`** |
+| **Final score** | | **`0.169725`** |
 
 > Ranked by: **weighted**
 ---
@@ -42,7 +42,13 @@ _No tags._
 
 ## Description
 
-_No description provided._
+A famous poet once said "Natural language is most powerful when it can draw from a rich context." Ok fine, I said that. But that's true of both poetry, and of LLMs! Well, Knowledge Graphs excel at capturing context. How can combining Knowledge Graphs with RAG – an emerging technique known as GraphRAG – give context to your RAG application, and lead to more accurate and complete results, accelerated development, and explainable AI decisions? This talk will go deep on the why and how of GraphRAG, and where best to apply it. You’ll get concepts, examples, and specifics on how you can get started. You’ll walk away with an understanding of how GraphRAG can improve the context you pass to the LLM and the performance of your AI applications.
+
+Recorded live in San Francisco at the AI Engineer World's Fair. See the full schedule of talks at https://www.ai.engineer/worldsfair/2024/schedule & join us at the AI Engineer World's Fair in 2025! Get your tickets today at https://ai.engineer/2025
+
+About Emil
+
+Emil Eifrem is Neo4j’s Co-Founder and CEO. He sketched what today is known as the property graph model on a flight to Mumbai way back when dinosaurs ruled the earth and has devoted his professional life to building, innovating, and evangelizing graph databases and graph analytics. He is also co-author of the O'Reilly book Graph Databases. Neo4j today helps more than 75 of the Fortune 100, and a community of over hundreds of thousands of practitioners find hidden relationships and patterns across billions of connections deeply, easily, and quickly. Emil plans to change the world with graphs and own Larry's yacht by the end of the decade.
 ---
 
 ## Chapters

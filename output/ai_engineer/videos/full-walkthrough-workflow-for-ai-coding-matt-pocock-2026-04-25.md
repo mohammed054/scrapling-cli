@@ -7,10 +7,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2026-04-25 (3 days ago) |
+| **Date** | 2026-04-25 |
 | **Type** | Video |
-| **Duration** | 1:36:30 |
-| **Views** | 90,202 |
+| **Duration** | 1:36:29 |
+| **Views** | 90,713 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
@@ -26,23 +26,39 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 90,202 | `0.2928` |
+| Views | 90,713 | `0.2945` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.145212`** |
+| **Final score** | | **`0.146038`** |
 
 > Ranked by: **weighted**
 ---
 
 ## Tags
 
-_No tags._
+`ai` `ai engineer` `ai engineering` `software development` `tech` `startups` `software architecture` `machine learning`
 ---
 
 ## Description
 
-_No description provided._
+A hands-on workshop covering the full lifecycle of AI-assisted development, from turning ambiguous requirements into agent-ready plans to running autonomous coding agents that ship production features.
+
+You'll learn to stress-test vague briefs into structured PRDs, slice work into thin "tracer bullet" vertical slices, and run an AI agent with TDD. You'll watch it select tasks, write tests, implement code, and commit. You'll then refine your prompts based on where it struggles, graduate to fully autonomous (AFK) runs, and learn to design codebases that maximize agent effectiveness.
+
+You'll walk away knowing how to:
+
+- Turn ambiguous requirements into agent-ready issues
+- Slice work into vertical tracer bullets an agent can grab independently
+- Run AI agents human-in-the-loop and autonomously with TDD
+- Design codebase architectures that AI agents love to work in
+
+For: Engineers ready to move beyond chat-based AI assistance and build a real workflow for shipping features with autonomous coding agents.
+
+Speaker info:
+- https://x.com/mattpocockuk
+- https://www.linkedin.com/in/mapocock/
+- https://youtube.com/@mattpocockuk
 ---
 
 ## Chapters

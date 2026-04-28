@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2026-04-17 (11 days ago) |
+| **Date** | 2026-04-17 |
 | **Type** | Video |
 | **Duration** | 18:25 |
-| **Views** | 172,601 |
+| **Views** | 172,677 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=RjfbvDXpFls) |
 | **Category** | - |
 | **Language** | - |
@@ -26,23 +26,40 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 172,601 | `0.6007` |
+| Views | 172,677 | `0.6005` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.291430`** |
+| **Final score** | | **`0.291332`** |
 
 > Ranked by: **weighted**
 ---
 
 ## Tags
 
-_No tags._
+`ai` `ai engineer` `ai engineering` `software development` `tech` `startups` `software architecture` `machine learning`
 ---
 
 ## Description
 
-_No description provided._
+All I wanted was a shitty coding agent that is truly mine. And I’d have loved to just tell you why and how I built pi. But then Peter decided to make it the agentic core of OpenClaw. And now pi is collateral. So yes, this is a talk about pi. But it is also a talk about how agents are destroying OSS, how I deal with that, and a plea to slow the fuck down.
+
+https://x.com/badlogicgames
+https://github.com/badlogic
+https://www.linkedin.com/in/mariozechner/
+
+Timestamps
+0:00 – Intro and motivation for building pi
+0:29 – Act 1: Building pi and the frustration with existing agent harnesses
+1:56 – Why current context management in tools like Cloud Code and Open Code fails
+4:44 – The importance of minimal harnesses and the "Terminal" benchmark
+5:35 – Introducing pi: A self-modifying, extensible agent core
+7:27 – The "YOLO" security philosophy and extensibility through TypeScript
+9:03 – Examples of pi extensions (chat rooms, NES, Doom)
+10:46 – Act 2: OSS in the age of "clankers" and how to fight them
+12:03 – Act 3: A plea to slow down and stop the "slop" in software development
+13:58 – How agents create "enterprise-grade complexity" and why humans are still the bottleneck
+16:12 – Practical advice: How to effectively integrate agents into your workflow
 ---
 
 ## Chapters

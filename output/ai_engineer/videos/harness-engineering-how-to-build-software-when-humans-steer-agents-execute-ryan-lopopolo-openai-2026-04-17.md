@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2026-04-17 (11 days ago) |
+| **Date** | 2026-04-17 |
 | **Type** | Video |
-| **Duration** | 46:21 |
-| **Views** | 74,534 |
+| **Duration** | 46:20 |
+| **Views** | 74,576 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=am_oeAoUhew) |
 | **Category** | - |
 | **Language** | - |
@@ -26,23 +26,30 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 74,534 | `0.2343` |
+| Views | 74,576 | `0.2342` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.113662`** |
+| **Final score** | | **`0.113643`** |
 
 > Ranked by: **weighted**
 ---
 
 ## Tags
 
-_No tags._
+`ai` `ai engineer` `ai engineering` `software development` `tech` `startups` `software architecture` `machine learning`
 ---
 
 ## Description
 
-_No description provided._
+https://openai.com/index/harness-engineering/
+
+Speaker info:
+- https://x.com/_lopopolo
+- https://www.linkedin.com/in/ryanlopopolo/
+- https://github.com/lopopolo
+
+With a special post keynote Q&A with Vibhu Sapra (https://x.com/vibhuuuus), cohost for https://latent.space/p/harness-eng
 ---
 
 ## Chapters

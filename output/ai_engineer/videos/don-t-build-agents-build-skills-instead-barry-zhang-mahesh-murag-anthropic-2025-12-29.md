@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-12-29 (4 months ago) |
+| **Date** | 2025-12-29 |
 | **Type** | Video |
 | **Duration** | 16:22 |
-| **Views** | 1,199,275 |
+| **Views** | 1,199,365 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=CEvIs9y1uog) |
 | **Category** | - |
 | **Language** | - |
@@ -26,7 +26,7 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 1,199,275 | `1.0000` |
+| Views | 1,199,365 | `1.0000` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
@@ -42,7 +42,10 @@ _No tags._
 
 ## Description
 
-_No description provided._
+In the past year, we've seen rapid advancement of model intelligence and convergence on agent scaffolding. But there's still a gap: agents often lack the domain expertise and specialized knowledge needed for real-world work. We think Skills are the solution—a minimal form factor for packaging procedural knowledge that agents can dynamically load. It's a portable, composable approach to giving one agent capabilities across domains. In this talk, we'll share how we built Skills at Anthropic, the network effects we're observing, and where we believe this leads: agents writing their own Skills from experience. Our thesis: equipping agents for real-world work means building reusable expertise.
+
+Barry: https://twitter.com/barry_zyj
+Mahesh: https://twitter.com/MaheshMurag
 ---
 
 ## Chapters

@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | 2026-03-29 |
+| **Date** | Approx. 2026-03-29 (1 month ago) |
 | **Type** | Video |
-| **Duration** | 8:59 |
-| **Views** | 261,713 |
+| **Duration** | 9:00 |
+| **Views** | 261,754 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [IBM Technology](https://www.youtube.com/ibmtechnology) |
-| **Subscribers** | 1,670,000 |
+| **Subscribers** | 0 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=mViFYTwWvcM) |
 | **Category** | - |
 | **Language** | - |
@@ -26,31 +26,23 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 261,713 | `0.1804` |
+| Views | 261,754 | `0.1780` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.083075`** |
+| **Final score** | | **`0.081982`** |
 
 > Ranked by: **weighted**
 ---
 
 ## Tags
 
-`IBM` `IBM Cloud`
+_No tags._
 ---
 
 ## Description
 
-Ready to become a certified watsonx AI Assistant Engineer? Register now and use code IBMTechYT20 for 20% off of your exam → https://ibm.biz/BdpBwE
-
-Learn more about AI Code-Generation Software here → https://ibm.biz/BdpBwX
-
-Is AI-assisted coding the future? 🤔 Cedric Clyburn explores spec-driven development, a game-changing approach that combines LLMs with software development best practices. Learn how it differs from vibe coding, integrates SDLC principles, and improves coding workflows with requirements-driven precision. 🚀
-
-AI news moves fast. Sign up for a monthly newsletter for AI updates from IBM → https://ibm.biz/BdpBwH
-
-#aicoding #llms #aiassisted
+_No description provided._
 ---
 
 ## Chapters

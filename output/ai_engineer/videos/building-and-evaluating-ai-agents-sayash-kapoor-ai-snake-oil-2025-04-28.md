@@ -7,17 +7,17 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-04-28 (1 year ago) |
+| **Date** | 2025-04-28 |
 | **Type** | Video |
-| **Duration** | 20:00 |
-| **Views** | 227,634 |
+| **Duration** | 19:59 |
+| **Views** | 227,635 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
-| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=d5EltXhbcfA&pp=0gcJCdQKAYcqIYzv) |
+| **Subscribers** | 428,000 |
+| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=d5EltXhbcfA) |
 | **Category** | - |
 | **Language** | - |
 ---
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 227,634 | `0.8063` |
+| Views | 227,635 | `0.8057` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.148314`** |
+| **Final score** | | **`0.148195`** |
 
 > Ranked by: **weighted**
 ---
@@ -42,7 +42,11 @@ _No tags._
 
 ## Description
 
-_No description provided._
+Is 2025 the year of AI agents? Will reasoning models allow agents to solve challenging open problems? From software engineering to web task automation, it has been claimed that agents will solve challenging open problems. Unfortunately, current agents suffer from many shortcomings that reduce their utility in real-world tasks — look no further than Rabbit R1 and the Humane Pin. In this talk, we will explore how current agents fall far short of their claimed performance in the real world and understand best practices for improving agent evaluation. Learn how to avoid known pitfalls and build AI agents that actually matter.
+
+Recorded live at the Agent Engineering Session Day from the AI Engineer Summit 2025 in New York. Learn more at https://ai.engineer and purchase tickets to our next event, the AI Engineer World's Fair, in SF June 3 - 5 here: https://ti.to/software-3/ai-engineer-worlds-fair-2025
+
+Sayash Kapoor is a Senior Fellow at Mozilla, a Laurance S. Rockefeller Graduate Prize Fellow in the University Center for Human Values, and a computer science Ph.D. candidate at Princeton University's Center for Information Technology Policy. He is a coauthor of AI Snake Oil, a book that provides a critical analysis of artificial intelligence, separating the hype from the true advances. He has written for outlets like WIRED and The Wall Street Journal, and his work has been featured in The New York Times, The Atlantic, Washington Post, Bloomberg, and many others. Kapoor has been recognized with various awards, including TIME’s inaugural list of the 100 most influential people in AI.
 ---
 
 ## Chapters

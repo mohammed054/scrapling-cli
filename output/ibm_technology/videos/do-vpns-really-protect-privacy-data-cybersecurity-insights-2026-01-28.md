@@ -10,7 +10,7 @@
 | **Date** | 2026-01-28 |
 | **Type** | Video |
 | **Duration** | 14:16 |
-| **Views** | 394,273 |
+| **Views** | 394,339 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 394,273 | `0.3107` |
+| Views | 394,339 | `0.3087` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.121399`** |
+| **Final score** | | **`0.120627`** |
 
 > Ranked by: **weighted**
 ---

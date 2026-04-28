@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2026-04-18 (10 days ago) |
+| **Date** | 2026-04-18 |
 | **Type** | Video |
 | **Duration** | 44:12 |
-| **Views** | 123,621 |
+| **Views** | 123,628 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=zgNvts_2TUE) |
 | **Category** | - |
 | **Language** | - |
@@ -26,23 +26,47 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 123,621 | `0.4177` |
+| Views | 123,628 | `0.4174` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.203199`** |
+| **Final score** | | **`0.203046`** |
 
 > Ranked by: **weighted**
 ---
 
 ## Tags
 
-_No tags._
+`ai` `ai engineer` `ai engineering` `software development` `tech` `startups` `software architecture` `machine learning`
 ---
 
 ## Description
 
-_No description provided._
+Peter Steinberger gives the 5 month update on OpenClaw, the fastest growing open source project in history, and what it's like as a maintainer, from security to community. Keynote followed by audience Q&A moderated by @swyx.
+
+Speaker info:
+- https://x.com/steipete
+- https://www.linkedin.com/in/steipete/
+- https://openclaw.ai/
+
+
+Timestamps
+0:00 Project Growth and Statistics
+2:23 Management Challenges and the OpenClaw Foundation
+3:47 Addressing Security Advisories and Vulnerabilities
+10:33 Misinformation and Media Fearmongering
+14:50 The Burden of Open Source Maintenance
+16:12 OpenAI Involvement and Future Independence
+18:57 Audience Q&A Begins
+19:53 OpenClaw's Relationship with OpenAI
+22:28 The Importance of Open and Local Models
+24:57 Coding Workflow and Agent Interactions
+28:28 Defining 'Taste' in AI Development
+30:31 Developing Personality for AI Agents
+33:22 Future Vision: Ubiquitous Agents and Smart Homes
+35:58 Addressing Prompt Injection Risks
+38:33 Future Vision: Implementing 'Dreaming' and Modularity
+40:24 Life as a Maintainer and Future Skills
 ---
 
 ## Chapters

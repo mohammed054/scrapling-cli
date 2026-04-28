@@ -53,7 +53,7 @@ def test_service_uses_first_available_backend(tmp_path):
 
 
 def test_service_falls_back_after_retryable_error(tmp_path):
-    options = TranscriptOptions(enabled=True, cache_dir=tmp_path)
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, retry_attempts=2, request_delay_seconds=0)
     failing = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("blocked"))
     fallback = FakeBackend(
         "yt_dlp",
@@ -65,6 +65,47 @@ def test_service_falls_back_after_retryable_error(tmp_path):
     assert result.text == "fallback"
     assert failing.calls == 2
     assert fallback.calls == 1
+
+
+def test_retryable_failure_is_not_cached(tmp_path):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, retry_attempts=2, request_delay_seconds=0)
+    backend = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("429 Too Many Requests"))
+    service = TranscriptService(options, backends=[backend], cache=TranscriptCache(tmp_path))
+
+    first = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    second = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+
+    service.resolve_item(first)
+    service.resolve_item(second)
+
+    assert backend.calls == 4
+
+
+def test_transient_cached_failure_is_ignored(tmp_path):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path)
+    backend = FakeBackend(
+        "youtube_transcript_api",
+        TranscriptResult.available(source="youtube_transcript_api", text="fresh", language="en", backend_fingerprint="a"),
+    )
+    cache = TranscriptCache(tmp_path)
+    fingerprint = backend.fingerprint(options)
+    cache.save(
+        "vid",
+        TranscriptResult.unavailable(
+            source=backend.name,
+            language="en",
+            error="429 Too Many Requests",
+            backend_fingerprint=fingerprint,
+        ),
+    )
+
+    service = TranscriptService(options, backends=[backend], cache=cache)
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    result = service.resolve_item(item)
+
+    assert result.status == "available"
+    assert result.text == "fresh"
+    assert backend.calls == 1
 
 
 def test_service_uses_cache_for_second_call(tmp_path):
@@ -109,7 +150,7 @@ def test_ytdlp_backend_prefers_manual_subtitles(monkeypatch):
     monkeypatch.setattr(
         backend,
         "_extract_info",
-        lambda item: {
+        lambda item, options: {
             "subtitles": {"en": [{"ext": "vtt", "url": "https://subs/manual"}]},
             "automatic_captions": {"en": [{"ext": "vtt", "url": "https://subs/auto"}]},
         },
@@ -129,7 +170,7 @@ def test_ytdlp_backend_uses_auto_subtitles_when_manual_missing(monkeypatch):
     monkeypatch.setattr(
         backend,
         "_extract_info",
-        lambda item: {
+        lambda item, options: {
             "subtitles": {},
             "automatic_captions": {"en": [{"ext": "json3", "url": "https://subs/auto"}]},
         },
@@ -142,6 +183,33 @@ def test_ytdlp_backend_uses_auto_subtitles_when_manual_missing(monkeypatch):
     result = backend.fetch(ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid"), TranscriptOptions(enabled=True))
     assert result.source == "yt_dlp_auto_subtitle"
     assert result.text == "Auto"
+
+
+def test_ytdlp_backend_sends_browser_like_headers(monkeypatch):
+    backend = YtDlpSubtitleBackend()
+    captured = {}
+    monkeypatch.setattr(
+        backend,
+        "_extract_info",
+        lambda item, options: {
+            "subtitles": {"en": [{"ext": "vtt", "url": "https://subs/manual"}]},
+            "automatic_captions": {},
+        },
+    )
+
+    def _capture_request(request, timeout=30):
+        captured["headers"] = dict(request.header_items())
+        return _FakeResponse(b"WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nManual\n")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _capture_request)
+
+    backend.fetch(
+        ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid"),
+        TranscriptOptions(enabled=True, language="en-US"),
+    )
+
+    assert captured["headers"]["User-agent"].startswith("Mozilla/5.0")
+    assert captured["headers"]["Accept-language"] == "en-US,en;q=0.9"
 
 
 def test_openai_asr_backend_merges_chunks(monkeypatch, tmp_path):
@@ -340,3 +408,20 @@ def test_non_retryable_backend_is_not_retried_by_service(tmp_path, monkeypatch):
     assert result.status == "available"
     assert non_retryable.calls == 1  # NOT retried
     assert fallback.calls == 1
+
+
+def test_retryable_backoff_is_exponential(tmp_path, monkeypatch):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0, retry_attempts=4)
+    backend = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("blocked"))
+    service = TranscriptService(options, backends=[backend], cache=TranscriptCache(tmp_path))
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    sleeps = []
+
+    import scrapling_cli.transcripts.service as service_mod
+
+    monkeypatch.setattr(service_mod.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    result = service.resolve_item(item)
+
+    assert result.status == "unavailable"
+    assert sleeps == [1.0, 2.0, 4.0]

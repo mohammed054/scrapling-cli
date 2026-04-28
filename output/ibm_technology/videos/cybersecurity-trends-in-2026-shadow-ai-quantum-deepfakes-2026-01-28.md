@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | 2026-01-28 |
+| **Date** | Approx. 2026-01-28 (3 months ago) |
 | **Type** | Video |
 | **Duration** | 20:29 |
-| **Views** | 246,425 |
+| **Views** | 246,437 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [IBM Technology](https://www.youtube.com/ibmtechnology) |
-| **Subscribers** | 1,670,000 |
+| **Subscribers** | 0 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=2jU-mLMV8Vw) |
 | **Category** | - |
 | **Language** | - |
@@ -26,31 +26,23 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 246,425 | `0.1654` |
+| Views | 246,437 | `0.1629` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.064610`** |
+| **Final score** | | **`0.063655`** |
 
 > Ranked by: **weighted**
 ---
 
 ## Tags
 
-`IBM` `IBM Cloud`
+_No tags._
 ---
 
 ## Description
 
-Ready to become a certified SOC Analyst - QRadar SIEM V7.5 Plus CompTIA Cybersecurity Analyst? Register now and use code IBMTechYT20 for 20% off of your exam → https://ibm.biz/BdbTRi
-
-Learn more about AI Security here → https://ibm.biz/BdbTRj
-
-Cybersecurity is evolving fast 🔐. Jeff Crume breaks down trends like Shadow AI, polymorphic malware, and post-quantum cryptography, uncovering the risks shaping 2026. Learn how innovations like AI and quantum computing are redefining security and what it means for the future.
-
-Read the Cost of a Data Breach report  → https://ibm.biz/BdbTRC
-
-#cybersecurity #quantumcomputing #techinnovation
+_No description provided._
 ---
 
 ## Chapters

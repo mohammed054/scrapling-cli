@@ -7,17 +7,17 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-08-01 (9 months ago) |
+| **Date** | 2025-08-01 |
 | **Type** | Video |
-| **Duration** | 21:36 |
-| **Views** | 1,063,020 |
+| **Duration** | 21:35 |
+| **Views** | 1,063,033 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
-| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=8rABwKRsec4) |
+| **Subscribers** | 428,000 |
+| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=8rABwKRsec4&pp=0gcJCdQKAYcqIYzv) |
 | **Category** | - |
 | **Language** | - |
 ---
@@ -26,7 +26,7 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 1,063,020 | `1.0000` |
+| Views | 1,063,033 | `1.0000` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
@@ -42,7 +42,18 @@ _No tags._
 
 ## Description
 
-_No description provided._
+In an era where AI transforms software development, the most valuable skill isn't writing code - it's communicating intent with precision. This talk reveals how specifications, not prompts or code, are becoming the fundamental unit of programming, and why spec-writing is the new superpower.
+
+Drawing from production experience, we demonstrate how rigorous, versioned specifications serve as the source of truth that compiles to documentation, evaluations, model behaviors, and maybe even code.
+
+Just as the US Constitution acts as a versioned spec with judicial review as its grader, AI systems need executable specifications that align both human teams and machine intelligence. We'll look at OpenAI's Model Spec as a real-world example.
+
+Finally, we'll end on some open questions about what the future of developer tooling looks like in a world where communication once again becomes the most important artifact in engineering.
+
+About Sean Grove
+Sean Grove works on alignment reasoning at OpenAI, helping translate high‑level intent into enforceable specs and evaluations. Before OpenAI he founded OneGraph, a GraphQL developer‑tools startup later acquired by Netlify. He has delivered dozens of technical talks worldwide on developer tooling, APIs, AI UX and design, and now alignment.
+
+Recorded at the AI Engineer World's Fair in San Francisco. Stay up to date on our upcoming events and content by joining our newsletter here: https://www.ai.engineer/newsletter
 ---
 
 ## Chapters

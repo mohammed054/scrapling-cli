@@ -10,7 +10,7 @@
 | **Date** | 2025-04-28 |
 | **Type** | Video |
 | **Duration** | 3:46 |
-| **Views** | 553,367 |
+| **Views** | 553,388 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 553,367 | `0.4671` |
+| Views | 553,388 | `0.4655` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.085916`** |
+| **Final score** | | **`0.085626`** |
 
 > Ranked by: **weighted**
 ---

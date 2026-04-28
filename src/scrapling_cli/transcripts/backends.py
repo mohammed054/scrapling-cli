@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 OPENAI_FILE_LIMIT_BYTES = 25 * 1024 * 1024
 ASR_SEGMENT_SECONDS = 20 * 60
+BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
 
 
 class TranscriptBackendError(RuntimeError):
@@ -74,6 +78,21 @@ def _select_best_track(tracks: list[dict]) -> dict | None:
         return None
     priority = {"vtt": 0, "srv3": 1, "srv2": 2, "srv1": 3, "json3": 4, "srt": 5, "ttml": 6}
     return sorted(tracks, key=lambda track: (priority.get(track.get("ext", ""), 99), track.get("url", "")))[0]
+
+
+def _browser_headers(options: TranscriptOptions) -> dict[str, str]:
+    language = (options.language or "en").strip() or "en"
+    base_language = language.split("-", 1)[0]
+    if language.lower().startswith("en"):
+        accept_language = "en-US,en;q=0.9"
+    else:
+        accept_language = f"{language},{base_language};q=0.9,en;q=0.8"
+    return {
+        "User-Agent": BROWSER_USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": accept_language,
+        "Referer": "https://www.youtube.com/",
+    }
 
 
 class YouTubeTranscriptApiBackend:
@@ -168,20 +187,21 @@ class YouTubeTranscriptApiBackend:
 class YtDlpSubtitleBackend:
     name = "yt_dlp"
 
-    def _extract_info(self, item: ContentItem):
+    def _extract_info(self, item: ContentItem, options: TranscriptOptions):
         try:
             from yt_dlp import YoutubeDL
         except ImportError as exc:  # pragma: no cover - exercised in runtime environments without deps
             raise TranscriptBackendError("yt-dlp not installed") from exc
 
-        options = {
+        ydl_options = {
             "quiet": True,
             "no_warnings": True,
             "skip_download": True,
             "noplaylist": True,
             "extract_flat": False,
+            "http_headers": _browser_headers(options),
         }
-        with YoutubeDL(options) as ydl:
+        with YoutubeDL(ydl_options) as ydl:
             try:
                 return ydl.extract_info(item.url, download=False)
             except Exception as exc:  # noqa: BLE001
@@ -191,7 +211,7 @@ class YtDlpSubtitleBackend:
         return f"{self.name}:{','.join(options.normalized_language_preferences())}"
 
     def fetch(self, item: ContentItem, options: TranscriptOptions) -> TranscriptResult:
-        info = self._extract_info(item)
+        info = self._extract_info(item, options)
         preferences = options.normalized_language_preferences()
         manual = _select_track(info.get("subtitles") or {}, preferences)
         source = "yt_dlp_manual_subtitle"
@@ -207,7 +227,7 @@ class YtDlpSubtitleBackend:
             )
 
         language, track = manual
-        request = urllib.request.Request(track["url"], headers={"User-Agent": "Mozilla/5.0"})
+        request = urllib.request.Request(track["url"], headers=_browser_headers(options))
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
                 payload = response.read().decode("utf-8", errors="replace")

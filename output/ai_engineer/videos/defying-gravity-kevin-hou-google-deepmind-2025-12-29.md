@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-12-29 (4 months ago) |
+| **Date** | 2025-12-29 |
 | **Type** | Video |
-| **Duration** | 25:10 |
-| **Views** | 104,414 |
+| **Duration** | 25:09 |
+| **Views** | 104,417 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=HN-F-OQe6j0) |
 | **Category** | - |
 | **Language** | - |
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 104,414 | `0.3459` |
+| Views | 104,417 | `0.3456` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.124499`** |
+| **Final score** | | **`0.124401`** |
 
 > Ranked by: **weighted**
 ---
@@ -42,7 +42,26 @@ _No tags._
 
 ## Description
 
-_No description provided._
+Why we built Google Antigravity, and discussing the future of agentic IDEs with Gemini 3.
+
+Speaker: https://x.com/kevinhou22
+
+AIE is coming to London and SF! see dates and sign up to be notified of sponsorships, CFPs, and tickets: https://ai.engineer
+
+**Timestamps:**
+
+00:00 Intro & Anti-gravity Launch
+01:26 Anti-gravity Product Overview (Three Surfaces)
+02:16 Agent Manager & Editor Integration
+03:13 Agent-Controlled Browser & Context Retrieval
+05:51 Philosophy: Model Capabilities Driving Product Paradigms
+07:03 Four Categories of Improvements (Intelligence, Tools, Long-running, Multimodal)
+08:31 Computer Use & Visual Verification
+11:18 Image Generation & Design Iteration
+12:26 The "Artifacts" Interaction Pattern
+16:51 Artifacts for Memory, Notifications, & Feedback
+20:34 The Research-Product Flywheel
+23:35 Closing Remarks
 ---
 
 ## Chapters

@@ -10,7 +10,7 @@
 | **Date** | 2025-04-28 |
 | **Type** | Video |
 | **Duration** | 12:28 |
-| **Views** | 1,691,395 |
+| **Views** | 1,691,414 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
@@ -26,7 +26,7 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 1,691,395 | `1.0000` |
+| Views | 1,691,414 | `1.0000` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |

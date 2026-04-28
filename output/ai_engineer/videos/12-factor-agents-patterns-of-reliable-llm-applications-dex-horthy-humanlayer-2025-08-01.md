@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-08-01 (9 months ago) |
+| **Date** | 2025-08-01 |
 | **Type** | Video |
-| **Duration** | 17:06 |
-| **Views** | 274,111 |
+| **Duration** | 17:05 |
+| **Views** | 274,114 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=8kMaTybvDUw) |
 | **Category** | - |
 | **Language** | - |
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 274,111 | `0.9800` |
+| Views | 274,114 | `0.9792` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.233844`** |
+| **Final score** | | **`0.233658`** |
 
 > Ranked by: **weighted**
 ---
@@ -42,7 +42,44 @@ _No tags._
 
 ## Description
 
-_No description provided._
+Hi, I'm Dex. I've been hacking on AI agents for a while.
+    
+    I've tried every agent framework out there, from the plug-and-play crew/langchains to the "minimalist" smolagents of the world to the "production grade" langraph, griptape, etc.
+    
+    I've talked to a lot of really strong founders who are all building really impressive things with AI. Most of them are rolling the stack themselves. I don't see a lot of frameworks in production customer-facing agents.
+    
+    I've been surprised to find that most of the products out there billing themselves as "AI Agents" are not all that agentic. A lot of them are mostly deterministic code, with LLM steps sprinkled in at just the right points to make the experience truly magical.
+    
+    Agents, at least the good ones, don't follow the "here's your prompt, here's a bag of tools, loop until you hit the goal" pattern. Rather, they are comprised of mostly just software.
+    
+    So, I set out to answer:
+    
+    What are the principles we can use to build LLM-powered software that is actually good enough to put in the hands of production customers?
+
+# The Short  Version: The 12 Factors
+
+Even if LLMs continue to get exponentially more powerful, there will be core engineering techniques that make LLM-powered software more reliable, more scalable, and easier to maintain.
+
+How We Got Here: A Brief History of Software
+Factor 1: Natural Language to Tool Calls
+Factor 2: Own your prompts
+Factor 3: Own your context window
+Factor 4: Tools are just structured outputs
+Factor 5: Unify execution state and business state
+Factor 6: Launch/Pause/Resume with simple APIs
+Factor 7: Contact humans with tool calls
+Factor 8: Own your control flow
+Factor 9: Compact Errors into Context Window
+Factor 10: Small, Focused Agents
+Factor 11: Trigger from anywhere, meet users where they are
+Factor 12: Make your agent a stateless reducer
+
+
+---
+
+https://x.com/dexhorthy/
+https://github.com/humanlayer/12-factor-agents
+https://news.ycombinator.com/item?id=43699271
 ---
 
 ## Chapters

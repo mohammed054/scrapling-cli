@@ -7,17 +7,17 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-08-01 (9 months ago) |
+| **Date** | 2025-08-01 |
 | **Type** | Video |
 | **Duration** | 18:12 |
-| **Views** | 132,976 |
+| **Views** | 132,972 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
-| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=Lue8K2jqfKk&pp=0gcJCdQKAYcqIYzv) |
+| **Subscribers** | 428,000 |
+| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=Lue8K2jqfKk) |
 | **Category** | - |
 | **Language** | - |
 ---
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 132,976 | `0.4526` |
+| Views | 132,972 | `0.4523` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.108010`** |
+| **Final score** | | **`0.107918`** |
 
 > Ranked by: **weighted**
 ---
@@ -42,7 +42,12 @@ _No tags._
 
 ## Description
 
-_No description provided._
+A ten thousand foot view of the coding space, the UX of coding, and the Claude Code team's approach.
+
+About Boris Chemy
+Created Claude Code. Member of Technical Staff @Anthropic. Prev: Principal Engineer @Meta, Architect @Coatue. Author, OReilly's Programming TypeScript.
+
+Recorded at the AI Engineer World's Fair in San Francisco. Stay up to date on our upcoming events and content by joining our newsletter here: https://www.ai.engineer/newsletter
 ---
 
 ## Chapters

@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-04-28 (1 year ago) |
+| **Date** | 2025-04-28 |
 | **Type** | Video |
-| **Duration** | 1:44:12 |
+| **Duration** | 1:44:11 |
 | **Views** | 333,318 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=kQmXtrmQ5Zg) |
 | **Category** | - |
 | **Language** | - |
@@ -42,7 +42,17 @@ _No tags._
 
 ## Description
 
-_No description provided._
+The Model Context Protocol is a universal, open standard for connecting AI systems with data sources, replacing fragmented integrations with a single protocol. This workshop from Anthropic -- the creators of MCP -- talks about the philosophy behind MCP, its impact on the broader ecosystem since launch, and how developers can use it to build context-rich AI apps and agentic experiences.
+
+00:00 What is MCP? 
+9:39 Building with MCP 
+26:25 MCP & Agents 
+1:13:15 What's next for MCP? 
+
+Recorded live at workshop day from the AI Engineer Summit 2025 in NY. Learn more at https://ai.engineer and purchase tickets to our next event, the AI Engineer World's Fair, in SF June 3 - 5 here: https://ti.to/software-3/ai-engineer-worlds-fair-2025 
+
+About the instructor
+Mahesh is a Member of Technical Staff on Anthropic's Applied AI team, focused on Model Context Protocol, agents, and helping make Claude more useful to enterprises. He was previously a Product Manager at Scale AI & Tecton and did research at UC Berkeley on how self-driving cars impact traffic systems.
 ---
 
 ## Chapters

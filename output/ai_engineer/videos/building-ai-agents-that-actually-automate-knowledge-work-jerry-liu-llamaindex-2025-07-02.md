@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-07-02 (10 months ago) |
+| **Date** | 2025-07-02 |
 | **Type** | Video |
-| **Duration** | 17:57 |
-| **Views** | 123,382 |
+| **Duration** | 17:56 |
+| **Views** | 123,383 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=jVGCulhBRZI) |
 | **Category** | - |
 | **Language** | - |
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 123,382 | `0.4168` |
+| Views | 123,383 | `0.4165` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.091609`** |
+| **Final score** | | **`0.091535`** |
 
 > Ranked by: **weighted**
 ---
@@ -42,7 +42,18 @@ _No tags._
 
 ## Description
 
-_No description provided._
+Agents are all the rage in 2025, and every single b2b SaaS startup/incumbent promises AI agents that can "automate work" in some way.
+
+But how do you actually build this? The answer is two fold:
+1. really really good tools
+2. carefully tailored agent reasoning over these tools that range from assistant-to-automation based UXs.
+
+The main goal of this talk is to a practical overview of agent architectures that can automate real-world work, with a focus on document-centric tasks. Learn the core building blocks of best-in-class "tools" around processing, manipulating, and indexing/retrieving PDFs to Excel spreadsheets. Also learn the range of agent architectures suited for different tasks, from chat assistant-based UXs with high human-in-the-loop, to automation UXs that rely on encoding a business process into an end-to-end task solver. These architectures have to be generalizable but also highly accurate as agents get increasingly better at reasoning and code-writing.
+
+About Jerry Liu
+Jerry is the co-founder/CEO of LlamaIndex, the most accurate and flexible way to automate your document workflows with AI agents. Before this, he led the ML monitoring team at Robust Intelligence, did self-driving AI research at Uber ATG and worked on recommendation systems at Quora.
+
+Recorded at the AI Engineer World's Fair in San Francisco. Stay up to date on our upcoming events and content by joining our newsletter here: https://www.ai.engineer/newsletter
 ---
 
 ## Chapters

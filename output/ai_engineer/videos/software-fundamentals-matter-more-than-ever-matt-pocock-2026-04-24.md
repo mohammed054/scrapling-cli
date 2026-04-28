@@ -7,10 +7,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2026-04-24 (4 days ago) |
+| **Date** | 2026-04-24 |
 | **Type** | Video |
 | **Duration** | 18:26 |
-| **Views** | 291,977 |
+| **Views** | 292,690 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
@@ -26,7 +26,7 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 291,977 | `1.0000` |
+| Views | 292,690 | `1.0000` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
@@ -37,12 +37,16 @@
 
 ## Tags
 
-_No tags._
+`ai` `ai engineer` `ai engineering` `software development` `tech` `startups` `software architecture` `machine learning`
 ---
 
 ## Description
 
-_No description provided._
+AI coding tools are overhyped and powerful at the same time. Used well, they're extraordinary. Used badly, they'll bury you in spaghetti code faster than any human team could. The difference isn't the tool. It's the process. After 18 months of teaching developers to build with AI agents, Matt Pocock has watched the same patterns emerge: the devs who succeed aren't the ones who delegate everything or nothing. They're the ones who fall back on engineering fundamentals. In this talk, he shares the iterative process his students use to ship high-quality applications with AI agent swarms, and why the principles that make it work (ubiquitous language, vertical slices, TDD, deep modules) are decades-old ideas that didn't break. They got more important.
+
+Speaker info:
+- https://x.com/mattpocockuk
+- https://www.linkedin.com/in/mapocock/
 ---
 
 ## Chapters

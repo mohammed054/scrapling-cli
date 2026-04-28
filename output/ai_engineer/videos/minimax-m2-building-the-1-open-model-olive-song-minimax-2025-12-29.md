@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-12-29 (4 months ago) |
+| **Date** | 2025-12-29 |
 | **Type** | Video |
-| **Duration** | 13:41 |
+| **Duration** | 13:40 |
 | **Views** | 91,117 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=lY1iFbDPRlw) |
 | **Category** | - |
 | **Language** | - |
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 91,117 | `0.2962` |
+| Views | 91,117 | `0.2960` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.106618`** |
+| **Final score** | | **`0.106530`** |
 
 > Ranked by: **weighted**
 ---
@@ -42,7 +42,10 @@ _No tags._
 
 ## Description
 
-_No description provided._
+Introducing Minimax's latest AI model and its applications in code generation.
+
+Speaker:  Olive Song  |  Senior Researcher, MiniMax
+https://x.com/olive_jy_song
 ---
 
 ## Chapters

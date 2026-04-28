@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-04-28 (1 year ago) |
+| **Date** | 2025-04-28 |
 | **Type** | Video |
 | **Duration** | 15:09 |
-| **Views** | 440,029 |
+| **Views** | 440,037 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=D7_ipDqhtwk) |
 | **Category** | - |
 | **Language** | - |
@@ -26,7 +26,7 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 440,029 | `1.0000` |
+| Views | 440,037 | `1.0000` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
@@ -42,7 +42,11 @@ _No tags._
 
 ## Description
 
-_No description provided._
+Recorded live at the Agent Engineering Session Day from the AI Engineer Summit 2025 in New York. Learn more at https://ai.engineer and purchase tickets to our next event, the AI Engineer World's Fair, in SF June 3 - 5 here: https://ti.to/software-3/ai-engineer-worlds-fair-2025
+
+About Barry:
+
+Barry is a member of technical staff on Anthropic's Applied AI team, focusing on developing agentic systems with enterprises and startups. Previously, he was a tech lead on the Monetization genAI team at Meta, where he claimed the inaugural 'AI Engineer' title. He holds degrees in Computer Science and Industrial Engineering from Northwestern
 ---
 
 ## Chapters

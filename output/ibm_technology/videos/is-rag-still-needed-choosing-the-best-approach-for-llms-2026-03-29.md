@@ -10,14 +10,14 @@
 | **Date** | 2026-03-29 |
 | **Type** | Video |
 | **Duration** | 11:09 |
-| **Views** | 691,634 |
+| **Views** | 691,725 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [IBM Technology](https://www.youtube.com/ibmtechnology) |
 | **Subscribers** | 1,670,000 |
-| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=UabBYexBD4k&pp=0gcJCdQKAYcqIYzv) |
+| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=UabBYexBD4k) |
 | **Category** | - |
 | **Language** | - |
 ---
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 691,634 | `0.6030` |
+| Views | 691,725 | `0.6019` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.277712`** |
+| **Final score** | | **`0.277199`** |
 
 > Ranked by: **weighted**
 ---

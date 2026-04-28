@@ -7,16 +7,16 @@
 
 | Field | Value |
 |-------|-------|
-| **Date** | Approx. 2025-12-29 (4 months ago) |
+| **Date** | 2025-12-29 |
 | **Type** | Video |
-| **Duration** | 25:28 |
-| **Views** | 89,441 |
+| **Duration** | 25:27 |
+| **Views** | 89,448 |
 | **Likes** | 0 |
 | **Comments** | 0 |
 | **Like ratio** | 0.0000% |
 | **Comment ratio** | 0.0000% |
 | **Channel** | [AI Engineer](https://www.youtube.com/@aiDotEngineer) |
-| **Subscribers** | 0 |
+| **Subscribers** | 428,000 |
 | **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=JV-wY5pxXLo) |
 | **Category** | - |
 | **Language** | - |
@@ -26,11 +26,11 @@
 
 | Component | Raw | Normalized |
 |-----------|-----|------------|
-| Views | 89,441 | `0.2900` |
+| Views | 89,448 | `0.2898` |
 | Likes | 0 | `0.0000` |
 | Comments | 0 | `0.0000` |
 | Engagement rate | `0.000000` | `0.0000` |
-| **Final score** | | **`0.104364`** |
+| **Final score** | | **`0.104287`** |
 
 > Ranked by: **weighted**
 ---
@@ -42,7 +42,10 @@ _No tags._
 
 ## Description
 
-_No description provided._
+Web development has always moved in cycles of hype, from frameworks to tooling. With the rise of large language models, we're entering a new era of "vibe coding," where developers shape software through collaboration with Al rather than syntax. This talk explores what that means for the future of coding, especially in frontend development, and how it echoes the past while redefining what comes next.
+
+Speaker: Kitze  |  Founder, Sizzy
+https://x.com/thekitze
 ---
 
 ## Chapters
