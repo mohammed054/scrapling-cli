@@ -5,7 +5,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from .app import run_incremental_fetch
+from .app import TranscriptResolutionError, run_incremental_fetch
 from .cli_common import add_transcript_arguments, build_transcript_options, parse_date_arg
 from .logging_utils import setup_logging
 from .models import FetchNewRunConfig
@@ -50,7 +50,11 @@ def main(argv: list[str] | None = None) -> int:
         log_file=Path(args.log_file) if args.log_file else None,
         transcript_options=build_transcript_options(args),
     )
-    result = run_incremental_fetch(config)
+    try:
+        result = run_incremental_fetch(config)
+    except TranscriptResolutionError as exc:
+        console.print(f"[red]Transcript resolution failed.[/red] {exc}")
+        return 1
     console.print(f"[green]Done.[/green] New files written: {result.total_written}")
     return 0
 

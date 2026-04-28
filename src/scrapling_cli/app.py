@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date
 from pathlib import Path
 
@@ -24,6 +25,10 @@ from .utils import slugify_channel_name, stable_sort
 logger = logging.getLogger(__name__)
 
 
+class TranscriptResolutionError(RuntimeError):
+    """Raised when a run requires transcripts but some items remain unresolved."""
+
+
 def _build_transcript_service(config) -> TranscriptService:
     return TranscriptService(config.transcript_options)
 
@@ -33,6 +38,46 @@ def _enrich_items(items, progress_callback=None) -> None:
         enrich_content_item(item)
         if progress_callback:
             progress_callback(index, len(items), item.title)
+
+
+def _format_transcript_failures(items) -> str:
+    sample = []
+    for item in items[:5]:
+        sample.append(f"{item.id} ({item.title}): {item.transcript.error or item.transcript.status}")
+    suffix = "" if len(items) <= 5 else f" ... and {len(items) - 5} more"
+    return "; ".join(sample) + suffix
+
+
+def _resolve_transcripts_or_raise(transcript_service: TranscriptService, items, options) -> None:
+    if not options.enabled or not items:
+        return
+
+    transcript_service.resolve_many(items)
+    if not options.require_success:
+        return
+
+    retry_round = 0
+    while True:
+        unresolved = [item for item in items if item.transcript.status != "available"]
+        if not unresolved:
+            return
+        retryable = [item for item in unresolved if transcript_service.is_retryable_failure(item.transcript)]
+        if not retryable:
+            raise TranscriptResolutionError(
+                f"Could not resolve all transcripts: {_format_transcript_failures(unresolved)}"
+            )
+
+        retry_round += 1
+        sleep_seconds = max(30.0, max(1.0, options.request_delay_seconds) * 4)
+        logger.warning(
+            "transcript.retry_round round=%s unresolved=%s retryable=%s sleep_seconds=%.2f",
+            retry_round,
+            len(unresolved),
+            len(retryable),
+            sleep_seconds,
+        )
+        time.sleep(sleep_seconds)
+        transcript_service.resolve_many(retryable)
 
 
 def run_channel_analysis(config: ChannelRunConfig) -> ChannelRunResult:
@@ -63,7 +108,7 @@ def run_channel_analysis(config: ChannelRunConfig) -> ChannelRunResult:
     top_shorts = select_top_percent(scored_shorts, config.top_percent) if scored_shorts else []
 
     transcript_service = _build_transcript_service(config)
-    transcript_service.resolve_many(top_videos + top_shorts)
+    _resolve_transcripts_or_raise(transcript_service, top_videos + top_shorts, config.transcript_options)
 
     result = ChannelRunResult(
         channel_name=fetched.channel_name,
@@ -168,7 +213,7 @@ def run_incremental_fetch(config: FetchNewRunConfig) -> FetchNewRunResult:
         new_items = new_videos + new_shorts
 
         _enrich_items(new_items)
-        transcript_service.resolve_many(new_items)
+        _resolve_transcripts_or_raise(transcript_service, new_items, config.transcript_options)
 
         output_root = config.output_dir / fetched.channel_slug
         written_files: list[Path] = []

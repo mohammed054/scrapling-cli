@@ -46,6 +46,14 @@ RATE_LIMIT_FAILURE_MARKERS = (
     "try again later",
 )
 
+RATE_LIMIT_SCOPE_BY_BACKEND = {
+    "youtube_transcript_api": "youtube",
+    "yt_dlp": "youtube",
+    "openai_asr": "youtube",
+}
+RATE_LIMIT_COOLDOWN_BASE_SECONDS = 30.0
+RATE_LIMIT_COOLDOWN_CAP_SECONDS = 15 * 60.0
+
 
 class TranscriptService:
     def __init__(
@@ -61,6 +69,8 @@ class TranscriptService:
         self._request_lock = Lock()
         self._fetch_lock = Lock()
         self._next_request_at = 0.0
+        self._scope_next_request_at: dict[str, float] = {}
+        self._scope_rate_limit_streaks: dict[str, int] = {}
 
     def _default_backends(self) -> list[TranscriptBackend]:
         backends: list[TranscriptBackend] = [
@@ -77,17 +87,35 @@ class TranscriptService:
         error = result.error.lower()
         return any(marker in error for marker in TRANSIENT_FAILURE_MARKERS)
 
+    def is_retryable_failure(self, result: TranscriptResult) -> bool:
+        return self._is_transient_failure(result)
+
+    def _rate_limit_scope(self, backend: TranscriptBackend) -> str:
+        return RATE_LIMIT_SCOPE_BY_BACKEND.get(backend.name, backend.name)
+
+    def _clear_rate_limit_state(self, backend: TranscriptBackend) -> None:
+        scope = self._rate_limit_scope(backend)
+        with self._request_lock:
+            self._scope_rate_limit_streaks.pop(scope, None)
+
     def _pace_request(self, backend: TranscriptBackend, item: ContentItem) -> None:
         delay_seconds = max(0.0, self.options.request_delay_seconds)
+        scope = self._rate_limit_scope(backend)
         with self._request_lock:
             now = time.monotonic()
-            scheduled_at = max(now, self._next_request_at)
+            scheduled_at = max(
+                now,
+                self._next_request_at,
+                self._scope_next_request_at.get(scope, 0.0),
+            )
             self._next_request_at = scheduled_at + delay_seconds
+            self._scope_next_request_at[scope] = scheduled_at + delay_seconds
         sleep_for = scheduled_at - now
         if sleep_for > 0:
             logger.debug(
-                "transcript.pacing backend=%s video_id=%s sleep_seconds=%.2f",
+                "transcript.pacing backend=%s scope=%s video_id=%s sleep_seconds=%.2f",
                 backend.name,
+                scope,
                 item.id,
                 sleep_for,
             )
@@ -107,19 +135,29 @@ class TranscriptService:
     ) -> bool:
         if not error or not self._is_rate_limited_error(error):
             return False
-        cooldown_seconds = max(
-            15.0,
-            max(1.0, self.options.request_delay_seconds) * (2 ** attempt),
-        )
+        scope = self._rate_limit_scope(backend)
         with self._request_lock:
             now = time.monotonic()
+            streak = self._scope_rate_limit_streaks.get(scope, 0) + 1
+            self._scope_rate_limit_streaks[scope] = streak
+            cooldown_seconds = min(
+                RATE_LIMIT_COOLDOWN_CAP_SECONDS,
+                max(
+                    RATE_LIMIT_COOLDOWN_BASE_SECONDS,
+                    max(1.0, self.options.request_delay_seconds) * 4,
+                )
+                * (2 ** (streak - 1)),
+            )
             resume_at = now + cooldown_seconds
             self._next_request_at = max(self._next_request_at, resume_at)
+            self._scope_next_request_at[scope] = max(self._scope_next_request_at.get(scope, 0.0), resume_at)
         logger.warning(
-            "transcript.cooldown backend=%s video_id=%s attempt=%s cooldown_seconds=%.2f error=%s",
+            "transcript.cooldown backend=%s scope=%s video_id=%s attempt=%s streak=%s cooldown_seconds=%.2f error=%s",
             backend.name,
+            scope,
             item.id,
             attempt,
+            streak,
             cooldown_seconds,
             error,
         )
@@ -137,12 +175,23 @@ class TranscriptService:
                 error = str(exc)
                 cooled_down = self._extend_rate_limit_cooldown(backend, item, attempt=attempt, error=error)
                 logger.warning(
-                    "transcript.retry backend=%s video_id=%s attempt=%s error=%s",
+                    "transcript.retry backend=%s scope=%s video_id=%s attempt=%s error=%s",
                     backend.name,
+                    self._rate_limit_scope(backend),
                     item.id,
                     attempt,
                     error,
                 )
+                if cooled_down:
+                    return (
+                        TranscriptResult.unavailable(
+                            source=backend.name,
+                            language=self.options.language,
+                            error=error,
+                            backend_fingerprint=backend.fingerprint(self.options),
+                        ),
+                        False,
+                    )
                 if attempt >= attempts:
                     return (
                         TranscriptResult.unavailable(
@@ -153,8 +202,6 @@ class TranscriptService:
                         ),
                         False,
                     )
-                if cooled_down:
-                    continue
                 backoff_seconds = backoff_base * (2 ** (attempt - 1))
                 logger.info(
                     "transcript.backoff backend=%s video_id=%s attempt=%s sleep_seconds=%.2f",
@@ -231,6 +278,7 @@ class TranscriptService:
                     result.source or backend.name,
                 )
             if result.status == "available":
+                self._clear_rate_limit_state(backend)
                 item.transcript = result
                 return result
             errors.append(f"{backend.name}: {result.error or result.status}")

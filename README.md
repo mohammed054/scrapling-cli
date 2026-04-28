@@ -52,14 +52,19 @@ Useful transcript controls:
 --transcript-language en
 --cache-dir .cache/scrapling-cli
 --workers 1
---transcript-delay 2.0
+--transcript-delay 4.0
 --transcript-retries 4
+--allow-missing-transcripts
 --allow-hosted-asr
 --no-hosted-asr
 --asr-model gpt-4o-mini-transcribe
 ```
 
-Transcript fetching now keeps only one transcript network fetch in flight at a time by default, spaces requests, cools down after `429` or bot-block responses, retries retryable provider failures with exponential backoff, and avoids caching transient block responses such as `429` or `not a bot` challenges.
+Transcript fetching now keeps only one transcript network fetch in flight at a time by default, spaces requests more conservatively, shares cooldown state across YouTube-backed transcript fallbacks after `429` or bot-block responses, stops retrying the same backend once a real rate limit is detected, and avoids stacking yt-dlp's internal retries on top of the service retry loop.
+
+If transcript coverage matters more than speed, set `OPENAI_API_KEY` and leave hosted ASR enabled so the pipeline still has a fallback when YouTube subtitle paths are blocked.
+
+When `--transcripts` is enabled, the CLI now treats missing transcripts as a blocking condition by default: retryable failures keep getting retried in rounds, and the run exits non-zero if any item still has a permanent transcript failure. Use `--allow-missing-transcripts` to restore the looser behavior.
 
 If YouTube blocks the current IP, the transcript fields will still record the failure reason instead of collapsing to a generic message.
 

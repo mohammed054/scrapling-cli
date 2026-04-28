@@ -14,6 +14,7 @@ from scrapling_cli.transcripts.backends import (
     TranscriptBackendError,
     YouTubeTranscriptApiBackend,
     YtDlpSubtitleBackend,
+    _yt_dlp_request_options,
 )
 from scrapling_cli.transcripts.cache import TranscriptCache
 from scrapling_cli.transcripts.service import TranscriptService
@@ -80,7 +81,7 @@ def test_retryable_failure_is_not_cached(tmp_path):
     service.resolve_item(first)
     service.resolve_item(second)
 
-    assert backend.calls == 4
+    assert backend.calls == 2
 
 
 def test_transient_cached_failure_is_ignored(tmp_path):
@@ -454,7 +455,49 @@ def test_rate_limited_failure_extends_global_cooldown(tmp_path, monkeypatch):
     result = service.resolve_item(item)
 
     assert result.status == "available"
-    assert sleeps == [15.0, 15.0]
+    assert sleeps == [30.0]
+
+
+def test_rate_limited_scope_cooldown_escalates_across_fallback_backends(tmp_path, monkeypatch):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=2, retry_attempts=2)
+    first = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("HTTP Error 429: Too Many Requests"))
+    second = FakeBackend("yt_dlp", error=RetryableTranscriptError("HTTP Error 429: Too Many Requests"))
+    third = FakeBackend(
+        "openai_asr",
+        TranscriptResult.available(source="openai_asr", text="asr text", language="en", backend_fingerprint="c"),
+    )
+    service = TranscriptService(options, backends=[first, second, third], cache=TranscriptCache(tmp_path))
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    sleeps = []
+
+    import scrapling_cli.transcripts.service as service_mod
+
+    clock = {"now": 0.0}
+
+    def _sleep(seconds):
+        sleeps.append(seconds)
+        clock["now"] += seconds
+
+    monkeypatch.setattr(service_mod.time, "sleep", _sleep)
+    monkeypatch.setattr(service_mod.time, "monotonic", lambda: clock["now"])
+
+    result = service.resolve_item(item)
+
+    assert result.status == "available"
+    assert sleeps == [30.0, 60.0]
+
+
+def test_ytdlp_request_options_disable_nested_retries():
+    options = TranscriptOptions(enabled=True, request_delay_seconds=4.0, retry_attempts=9)
+
+    request_options = _yt_dlp_request_options(options)
+
+    assert request_options["extractor_retries"] == 1
+    assert request_options["retries"] == 1
+    assert request_options["fragment_retries"] == 1
+    assert request_options["file_access_retries"] == 1
+    assert request_options["sleep_interval_requests"] == 4.0
+    assert request_options["sleep_interval_subtitles"] == 4.0
 
 
 def test_resolve_many_serializes_backend_fetches(tmp_path):

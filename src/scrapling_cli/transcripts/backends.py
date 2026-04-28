@@ -107,7 +107,13 @@ def _yt_dlp_request_options(options: TranscriptOptions) -> dict:
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        "extractor_retries": max(1, options.retry_attempts),
+        # The service layer already handles retries, pacing, and cooldowns.
+        # Keep yt-dlp to a single network attempt so one service retry does not
+        # fan out into multiple hidden requests that trigger more 429s.
+        "extractor_retries": 1,
+        "retries": 1,
+        "fragment_retries": 1,
+        "file_access_retries": 1,
         "http_headers": _browser_headers(options),
     }
     if request_delay > 0:

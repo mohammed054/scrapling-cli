@@ -5,7 +5,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from .app import run_channel_analysis
+from .app import TranscriptResolutionError, run_channel_analysis
 from .cli_common import add_transcript_arguments, build_transcript_options, parse_date_arg
 from .logging_utils import setup_logging
 from .models import ChannelRunConfig
@@ -78,7 +78,11 @@ def main(argv: list[str] | None = None) -> int:
         transcript_options=build_transcript_options(args),
     )
 
-    result = run_channel_analysis(config)
+    try:
+        result = run_channel_analysis(config)
+    except TranscriptResolutionError as exc:
+        console.print(f"[red]Transcript resolution failed.[/red] {exc}")
+        return 1
     if not result.top_videos and not result.top_shorts:
         console.print("[yellow]No items matched the current filters.[/yellow]")
         return 0

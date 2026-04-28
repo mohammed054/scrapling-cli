@@ -129,8 +129,9 @@ class TranscriptOptions:
     language: str = "en"
     cache_dir: Path = Path(".cache/scrapling-cli")
     workers: int = 1
-    request_delay_seconds: float = 2.0
+    request_delay_seconds: float = 4.0
     retry_attempts: int = 4
+    require_success: bool = True
     allow_hosted_asr: Optional[bool] = None
     asr_model: str = "gpt-4o-mini-transcribe"
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))

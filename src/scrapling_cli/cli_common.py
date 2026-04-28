@@ -28,14 +28,20 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
     group.add_argument(
         "--transcript-delay",
         type=float,
-        default=2.0,
-        help="Minimum delay in seconds between transcript requests across workers (default: 2.0)",
+        default=4.0,
+        help="Minimum delay in seconds between transcript requests across workers (default: 4.0)",
     )
     group.add_argument(
         "--transcript-retries",
         type=int,
         default=4,
         help="Retry attempts per transcript backend for retryable failures (default: 4)",
+    )
+    group.add_argument(
+        "--allow-missing-transcripts",
+        dest="require_transcript_success",
+        action="store_false",
+        help="Finish the run even when some transcripts remain unavailable",
     )
     hosted = group.add_mutually_exclusive_group()
     hosted.add_argument(
@@ -50,7 +56,7 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
         action="store_false",
         help="Disable OpenAI ASR fallback even if OPENAI_API_KEY is set",
     )
-    parser.set_defaults(allow_hosted_asr=None)
+    parser.set_defaults(allow_hosted_asr=None, require_transcript_success=True)
     group.add_argument(
         "--asr-model",
         default="gpt-4o-mini-transcribe",
@@ -66,6 +72,7 @@ def build_transcript_options(args: Namespace) -> TranscriptOptions:
         workers=max(1, args.workers),
         request_delay_seconds=max(0.0, args.transcript_delay),
         retry_attempts=max(1, args.transcript_retries),
+        require_success=bool(args.require_transcript_success),
         allow_hosted_asr=args.allow_hosted_asr,
         asr_model=args.asr_model,
     )
