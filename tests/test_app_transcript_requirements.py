@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 import pytest
 
 from scrapling_cli.app import TranscriptResolutionError, _resolve_transcripts_or_raise
-from scrapling_cli.cli_common import add_transcript_arguments, build_transcript_options
+from scrapling_cli.cli_common import add_transcript_arguments, build_transcript_options, load_env_file
 from scrapling_cli.models import ContentItem, TranscriptOptions, TranscriptResult
 
 
@@ -107,3 +108,18 @@ def test_build_transcript_options_accepts_openrouter_asr_model():
     options = build_transcript_options(args)
 
     assert options.openrouter_asr_model == "openai/whisper-1"
+
+
+def test_load_env_file_reads_local_keys_without_overriding(tmp_path, monkeypatch):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "OPENROUTER_API_KEY=from-file\nOPENAI_API_KEY=from-file-openai\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("OPENROUTER_API_KEY", "already-set")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    load_env_file(env_file)
+
+    assert os.environ["OPENROUTER_API_KEY"] == "already-set"
+    assert os.environ["OPENAI_API_KEY"] == "from-file-openai"

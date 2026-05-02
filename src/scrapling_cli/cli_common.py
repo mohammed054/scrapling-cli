@@ -7,6 +7,28 @@ from pathlib import Path
 from .models import TranscriptOptions
 
 
+def load_env_file(path: Path = Path(".env")) -> None:
+    """Load simple KEY=VALUE pairs without overriding the process environment."""
+    if not path.exists():
+        return
+    import os
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in os.environ:
+            continue
+        value = value.strip().strip('"').strip("'")
+        os.environ[key] = value
+
+
 def parse_date_arg(value: str):
     return datetime.strptime(value, "%Y-%m-%d").date()
 
@@ -82,6 +104,7 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
 
 
 def build_transcript_options(args: Namespace) -> TranscriptOptions:
+    load_env_file()
     return TranscriptOptions(
         enabled=bool(getattr(args, "transcripts", False)),
         language=args.transcript_language,

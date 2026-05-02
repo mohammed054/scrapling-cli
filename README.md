@@ -9,7 +9,7 @@ Typed YouTube channel analysis and incremental fetch tooling built around Scrapl
 - Transcript resolution now runs in a fixed fallback order:
   1. `youtube-transcript-api`
   2. `yt-dlp` subtitle extraction
-  3. Optional OpenAI ASR when `OPENAI_API_KEY` is available
+  3. Optional hosted ASR when `OPENAI_API_KEY` or `OPENROUTER_API_KEY` is available
   4. Structured `unavailable` result with provenance and error details
 - Transcript metadata is exported everywhere:
   - `transcript_status`
@@ -86,16 +86,37 @@ python scrapling_cli.py \
   --output-dir output
 ```
 
-If transcript coverage matters more than speed, set `OPENAI_API_KEY` or `OPENROUTER_API_KEY` and leave hosted ASR enabled so the pipeline still has a fallback when YouTube subtitle paths are blocked. On Windows PowerShell:
+## API Keys And `.env`
 
-```powershell
-$env:OPENROUTER_API_KEY = "your-rotated-openrouter-key"
+This repo loads local API keys from a repo-root `.env` file before it builds transcript options. The real `.env` file is ignored by git, so your key stays local.
+
+Create a new file named `.env` in the repo root and paste these secrets into it:
+
+```env
+OPENROUTER_API_KEY=your-rotated-openrouter-key
+# Optional: direct OpenAI ASR fallback
+OPENAI_API_KEY=
 ```
 
-For a persistent user-level key:
+Replace `your-rotated-openrouter-key` with the new key from OpenRouter, then save the file. You can also copy `.env.example` to `.env` and edit it.
+
+When the CLI starts, existing shell environment variables win, so a value already set in PowerShell will not be overwritten by `.env`.
+
+Then run the scraper with hosted ASR enabled:
 
 ```powershell
-[Environment]::SetEnvironmentVariable("OPENROUTER_API_KEY", "your-rotated-openrouter-key", "User")
+python scrapling_cli.py `
+  --channel "https://www.youtube.com/@aiDotEngineer" `
+  --top-percent 15 `
+  --rank-by weighted `
+  --recency-decay `
+  --clamp-outliers `
+  --no-enrich `
+  --transcripts `
+  --allow-hosted-asr `
+  --openrouter-asr-model openai/whisper-large-v3 `
+  --export-csv `
+  --output-dir output
 ```
 
 OpenRouter STT defaults to `openai/whisper-large-v3`; override with `--openrouter-asr-model` if your OpenRouter account has access to a different transcription model.

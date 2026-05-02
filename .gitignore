@@ -12,3 +12,6 @@ venv/
 .cache/
 .pytest_cache/
 .codex/
+.env
+.env.local
+.env.*.local
