@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
@@ -53,14 +54,20 @@ RATE_LIMIT_SCOPE_BY_BACKEND = {
     "openai_asr": "hosted_asr",
     "openrouter_asr": "hosted_asr",
 }
+PACE_SCOPES_BY_BACKEND = {
+    "openai_asr": ("hosted_asr", "youtube_media"),
+    "openrouter_asr": ("hosted_asr", "youtube_media"),
+}
 VISIBLE_SLEEP_THRESHOLD_SECONDS = 30.0
 HOSTED_ASR_BACKENDS = frozenset({"openai_asr", "openrouter_asr"})
 YOUTUBE_BACKENDS = frozenset({"youtube_transcript_api", "yt_dlp"})
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 
 
 def _compact_transcript_error(error: str) -> str:
     if not error:
         return ""
+    error = ANSI_ESCAPE_RE.sub("", error)
     lowered = error.lower()
     if "youtube is blocking requests from your ip" in lowered:
         return "ip blocked: YouTube is blocking transcript requests from this IP"
@@ -109,10 +116,13 @@ class TranscriptService:
     def _rate_limit_scope(self, backend: TranscriptBackend) -> str:
         return RATE_LIMIT_SCOPE_BY_BACKEND.get(backend.name, backend.name)
 
+    def _pace_scopes(self, backend: TranscriptBackend) -> tuple[str, ...]:
+        return PACE_SCOPES_BY_BACKEND.get(backend.name, (self._rate_limit_scope(backend),))
+
     def _clear_rate_limit_state(self, backend: TranscriptBackend) -> None:
-        scope = self._rate_limit_scope(backend)
         with self._request_lock:
-            self._scope_rate_limit_streaks.pop(scope, None)
+            for scope in self._pace_scopes(backend):
+                self._scope_rate_limit_streaks.pop(scope, None)
 
     def _rate_limit_streak(self, scope: str) -> int:
         with self._request_lock:
@@ -139,23 +149,24 @@ class TranscriptService:
 
     def _pace_request(self, backend: TranscriptBackend, item: ContentItem) -> None:
         delay_seconds = max(0.0, self.options.request_delay_seconds)
-        scope = self._rate_limit_scope(backend)
+        scopes = self._pace_scopes(backend)
         with self._request_lock:
             now = time.monotonic()
             scheduled_at = max(
                 now,
                 self._next_request_at,
-                self._scope_next_request_at.get(scope, 0.0),
+                *(self._scope_next_request_at.get(scope, 0.0) for scope in scopes),
             )
             self._next_request_at = scheduled_at + delay_seconds
-            self._scope_next_request_at[scope] = scheduled_at + delay_seconds
+            for scope in scopes:
+                self._scope_next_request_at[scope] = scheduled_at + delay_seconds
         sleep_for = scheduled_at - now
         if sleep_for > 0:
             log = logger.info if sleep_for >= VISIBLE_SLEEP_THRESHOLD_SECONDS else logger.debug
             log(
                 "transcript.pacing backend=%s scope=%s video_id=%s sleep_seconds=%.2f",
                 backend.name,
-                scope,
+                "+".join(scopes),
                 item.id,
                 sleep_for,
             )
@@ -172,10 +183,11 @@ class TranscriptService:
         *,
         attempt: int,
         error: str,
+        scope_override: str | None = None,
     ) -> bool:
         if not error or not self._is_rate_limited_error(error):
             return False
-        scope = self._rate_limit_scope(backend)
+        scope = scope_override or self._rate_limit_scope(backend)
         with self._request_lock:
             now = time.monotonic()
             streak = self._scope_rate_limit_streaks.get(scope, 0) + 1
@@ -211,11 +223,19 @@ class TranscriptService:
             except RetryableTranscriptError as exc:
                 raw_error = str(exc)
                 error = _compact_transcript_error(raw_error)
-                cooled_down = self._extend_rate_limit_cooldown(backend, item, attempt=attempt, error=raw_error)
+                scope_override = getattr(exc, "rate_limit_scope", None)
+                scope = scope_override or self._rate_limit_scope(backend)
+                cooled_down = self._extend_rate_limit_cooldown(
+                    backend,
+                    item,
+                    attempt=attempt,
+                    error=raw_error,
+                    scope_override=scope_override,
+                )
                 logger.warning(
                     "transcript.retry backend=%s scope=%s video_id=%s attempt=%s error=%s",
                     backend.name,
-                    self._rate_limit_scope(backend),
+                    scope,
                     item.id,
                     attempt,
                     error,

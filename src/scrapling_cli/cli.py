@@ -6,7 +6,13 @@ from pathlib import Path
 from rich.console import Console
 
 from .app import TranscriptResolutionError, run_channel_analysis
-from .cli_common import add_transcript_arguments, build_transcript_options, describe_hosted_asr, parse_date_arg
+from .cli_common import (
+    add_transcript_arguments,
+    build_transcript_options,
+    describe_cookie_source,
+    describe_hosted_asr,
+    parse_date_arg,
+)
 from .cli_ui import render_banner, render_key_values, render_result
 from .logging_utils import setup_logging
 from .models import ChannelRunConfig
@@ -91,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
             ("Rank by", args.rank_by),
             ("Transcripts", "on" if args.transcripts else "off"),
             ("Hosted ASR", describe_hosted_asr(config.transcript_options) if args.transcripts else "n/a"),
+            ("Cookies", describe_cookie_source(config.transcript_options) if args.transcripts else "n/a"),
             ("Workers", config.transcript_options.workers if args.transcripts else "n/a"),
             ("Output", config.output_dir),
         ],

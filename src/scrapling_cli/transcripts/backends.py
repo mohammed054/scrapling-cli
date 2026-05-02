@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import re
 import subprocess
 import tempfile
 import urllib.error
@@ -30,6 +31,17 @@ class TranscriptBackendError(RuntimeError):
 
 class RetryableTranscriptError(TranscriptBackendError):
     """Failure that can be retried with backoff."""
+
+    def __init__(self, message: str, *, rate_limit_scope: str | None = None) -> None:
+        super().__init__(message)
+        self.rate_limit_scope = rate_limit_scope
+
+
+class YouTubeMediaDownloadError(RetryableTranscriptError):
+    """Retryable failure while downloading YouTube media for ASR."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, rate_limit_scope="youtube_media")
 
 
 class TranscriptBackend(Protocol):
@@ -134,11 +146,39 @@ def _browser_headers(options: TranscriptOptions) -> dict[str, str]:
     }
 
 
+class _YtDlpLogger:
+    def debug(self, message: str) -> None:
+        logger.debug("yt_dlp.%s", message)
+
+    def warning(self, message: str) -> None:
+        logger.warning("yt_dlp.%s", message)
+
+    def error(self, message: str) -> None:
+        logger.debug("yt_dlp.%s", message)
+
+
+def _parse_cookies_from_browser(value: str) -> tuple[str, str | None, str | None, str | None]:
+    match = re.fullmatch(
+        r"(?x)"
+        r"(?P<name>[^+:]+)"
+        r"(?:\s*\+\s*(?P<keyring>[^:]+))?"
+        r"(?:\s*:\s*(?!:)(?P<profile>.+?))?"
+        r"(?:\s*::\s*(?P<container>.+))?",
+        value.strip(),
+    )
+    if not match:
+        raise TranscriptBackendError(f"invalid cookies-from-browser value: {value}")
+    browser, keyring, profile, container = match.group("name", "keyring", "profile", "container")
+    return browser.lower(), profile, keyring.upper() if keyring else None, container
+
+
 def _yt_dlp_request_options(options: TranscriptOptions) -> dict:
     request_delay = max(0.0, options.request_delay_seconds)
     ydl_options = {
         "quiet": True,
         "no_warnings": True,
+        "no_color": True,
+        "logger": _YtDlpLogger(),
         "noplaylist": True,
         # The service layer already handles retries, pacing, and cooldowns.
         # Keep yt-dlp to a single network attempt so one service retry does not
@@ -152,6 +192,10 @@ def _yt_dlp_request_options(options: TranscriptOptions) -> dict:
     if request_delay > 0:
         ydl_options["sleep_interval_requests"] = request_delay
         ydl_options["sleep_interval_subtitles"] = request_delay
+    if options.cookies_file:
+        ydl_options["cookiefile"] = str(options.cookies_file)
+    if options.cookies_from_browser:
+        ydl_options["cookiesfrombrowser"] = _parse_cookies_from_browser(options.cookies_from_browser)
     return ydl_options
 
 
@@ -352,10 +396,10 @@ class OpenAIAsrBackend:
             try:
                 info = ydl.extract_info(item.url, download=True)
             except Exception as exc:  # noqa: BLE001
-                raise RetryableTranscriptError(str(exc)) from exc
+                raise YouTubeMediaDownloadError(str(exc)) from exc
             path = Path(ydl.prepare_filename(info))
         if not path.exists():
-            raise RetryableTranscriptError("yt-dlp did not produce an audio file")
+            raise YouTubeMediaDownloadError("yt-dlp did not produce an audio file")
         return path
 
     def _run_ffmpeg(self, command: list[str]) -> None:

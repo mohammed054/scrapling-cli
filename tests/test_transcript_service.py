@@ -14,6 +14,7 @@ from scrapling_cli.transcripts.backends import (
     OpenRouterAsrBackend,
     RetryableTranscriptError,
     TranscriptBackendError,
+    YouTubeMediaDownloadError,
     YouTubeTranscriptApiBackend,
     YtDlpSubtitleBackend,
     _yt_dlp_request_options,
@@ -697,6 +698,69 @@ def test_ytdlp_request_options_disable_nested_retries():
     assert request_options["file_access_retries"] == 1
     assert request_options["sleep_interval_requests"] == 4.0
     assert request_options["sleep_interval_subtitles"] == 4.0
+
+
+def test_ytdlp_request_options_include_cookie_sources(tmp_path):
+    cookie_file = tmp_path / "cookies.txt"
+    options = TranscriptOptions(
+        enabled=True,
+        request_delay_seconds=0,
+        cookies_from_browser="edge:Default",
+        cookies_file=cookie_file,
+    )
+
+    request_options = _yt_dlp_request_options(options)
+
+    assert request_options["cookiefile"] == str(cookie_file)
+    assert request_options["cookiesfrombrowser"] == ("edge", "Default", None, None)
+
+
+def test_youtube_media_download_error_uses_media_cooldown_scope(tmp_path, caplog):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0, retry_attempts=1)
+    backend = FakeBackend(
+        "openrouter_asr",
+        error=YouTubeMediaDownloadError("[youtube] vid: Sign in to confirm you're not a bot"),
+    )
+    service = TranscriptService(options, backends=[backend], cache=TranscriptCache(tmp_path))
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+
+    with caplog.at_level(logging.WARNING):
+        result = service.resolve_item(item)
+
+    assert result.status == "unavailable"
+    assert service._scope_rate_limit_streaks["youtube_media"] == 1
+    assert "hosted_asr" not in service._scope_rate_limit_streaks
+    assert "scope=youtube_media" in caplog.text
+
+
+def test_asr_waits_for_youtube_media_cooldown(tmp_path, monkeypatch, caplog):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0, retry_attempts=1)
+    backend = FakeBackend(
+        "openrouter_asr",
+        TranscriptResult.available(source="openrouter_asr", text="asr text", language="en", backend_fingerprint="c"),
+    )
+    service = TranscriptService(options, backends=[backend], cache=TranscriptCache(tmp_path))
+    service._scope_next_request_at["youtube_media"] = 300.0
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    sleeps = []
+
+    import scrapling_cli.transcripts.service as service_mod
+
+    clock = {"now": 0.0}
+
+    def _sleep(seconds):
+        sleeps.append(seconds)
+        clock["now"] += seconds
+
+    monkeypatch.setattr(service_mod.time, "sleep", _sleep)
+    monkeypatch.setattr(service_mod.time, "monotonic", lambda: clock["now"])
+
+    with caplog.at_level(logging.INFO):
+        result = service.resolve_item(item)
+
+    assert result.text == "asr text"
+    assert sleeps == [300.0]
+    assert "scope=hosted_asr+youtube_media" in caplog.text
 
 
 def test_resolve_many_serializes_backend_fetches(tmp_path):

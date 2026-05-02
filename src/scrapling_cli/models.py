@@ -137,6 +137,8 @@ class TranscriptOptions:
     allow_hosted_asr: Optional[bool] = None
     asr_model: str = "gpt-4o-mini-transcribe"
     openrouter_asr_model: str = "openai/whisper-large-v3"
+    cookies_from_browser: str = ""
+    cookies_file: Path | None = None
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
     openrouter_api_key: str = field(default_factory=lambda: os.getenv("OPENROUTER_API_KEY", ""))
 

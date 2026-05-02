@@ -6,7 +6,13 @@ import os
 import pytest
 
 from scrapling_cli.app import TranscriptResolutionError, _resolve_transcripts_or_raise
-from scrapling_cli.cli_common import add_transcript_arguments, build_transcript_options, describe_hosted_asr, load_env_file
+from scrapling_cli.cli_common import (
+    add_transcript_arguments,
+    build_transcript_options,
+    describe_cookie_source,
+    describe_hosted_asr,
+    load_env_file,
+)
 from scrapling_cli.models import ContentItem, TranscriptOptions, TranscriptResult
 
 
@@ -110,6 +116,18 @@ def test_build_transcript_options_accepts_openrouter_asr_model():
     assert options.openrouter_asr_model == "openai/whisper-1"
 
 
+def test_build_transcript_options_accepts_cookie_sources(tmp_path):
+    parser = argparse.ArgumentParser()
+    add_transcript_arguments(parser)
+
+    cookie_file = tmp_path / "cookies.txt"
+    args = parser.parse_args(["--cookies-from-browser", "chrome", "--cookies", str(cookie_file)])
+    options = build_transcript_options(args)
+
+    assert options.cookies_from_browser == "chrome"
+    assert options.cookies_file == cookie_file
+
+
 def test_load_env_file_reads_local_keys_without_overriding(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
     env_file.write_text(
@@ -129,3 +147,9 @@ def test_describe_hosted_asr_reports_openrouter():
     options = TranscriptOptions(enabled=True, openai_api_key="", openrouter_api_key="test-key")
 
     assert describe_hosted_asr(options) == "openrouter"
+
+
+def test_describe_cookie_source_reports_browser():
+    options = TranscriptOptions(enabled=True, cookies_from_browser="chrome")
+
+    assert describe_cookie_source(options) == "browser:chrome"

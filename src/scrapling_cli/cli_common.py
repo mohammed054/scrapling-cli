@@ -44,6 +44,14 @@ def describe_hosted_asr(options: TranscriptOptions) -> str:
     return ", ".join(providers) if providers else "off"
 
 
+def describe_cookie_source(options: TranscriptOptions) -> str:
+    if options.cookies_from_browser:
+        return f"browser:{options.cookies_from_browser}"
+    if options.cookies_file:
+        return "file"
+    return "off"
+
+
 def add_transcript_arguments(parser: ArgumentParser) -> None:
     group = parser.add_argument_group("Transcripts")
     group.add_argument("--transcripts", action="store_true", help="Resolve transcripts for selected items")
@@ -112,6 +120,18 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
         default="openai/whisper-large-v3",
         help="OpenRouter STT model slug for hosted ASR fallback",
     )
+    group.add_argument(
+        "--cookies-from-browser",
+        default="",
+        metavar="BROWSER[:PROFILE]",
+        help="Let yt-dlp load YouTube cookies from a browser, for example chrome or edge:Default",
+    )
+    group.add_argument(
+        "--cookies",
+        default="",
+        metavar="FILE",
+        help="Path to a Netscape cookies.txt file for yt-dlp YouTube requests",
+    )
 
 
 def build_transcript_options(args: Namespace) -> TranscriptOptions:
@@ -129,4 +149,6 @@ def build_transcript_options(args: Namespace) -> TranscriptOptions:
         allow_hosted_asr=args.allow_hosted_asr,
         asr_model=args.asr_model,
         openrouter_asr_model=args.openrouter_asr_model,
+        cookies_from_browser=(args.cookies_from_browser or "").strip(),
+        cookies_file=Path(args.cookies) if getattr(args, "cookies", "") else None,
     )

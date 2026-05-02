@@ -61,6 +61,8 @@ Useful transcript controls:
 --no-hosted-asr
 --asr-model gpt-4o-mini-transcribe
 --openrouter-asr-model openai/whisper-large-v3
+--cookies-from-browser chrome
+--cookies path/to/cookies.txt
 ```
 
 The interactive CLI prints a large `SCRAPPING` startup banner plus run/result panels. Add `--no-banner` for scheduled jobs or plain log output.
@@ -115,6 +117,7 @@ python scrapling_cli.py `
   --transcripts `
   --allow-hosted-asr `
   --openrouter-asr-model openai/whisper-large-v3 `
+  --cookies-from-browser chrome `
   --export-csv `
   --output-dir output
 ```
@@ -122,6 +125,14 @@ python scrapling_cli.py `
 The startup panel should show `Hosted ASR  openrouter`. If it shows `off`, the `.env` file is missing, still blank, or the shell environment is overriding it.
 
 OpenRouter STT defaults to `openai/whisper-large-v3`; override with `--openrouter-asr-model` if your OpenRouter account has access to a different transcription model.
+
+Hosted ASR still needs the video audio first. If `yt-dlp` says `Sign in to confirm you're not a bot`, pass browser cookies from a browser where YouTube already works:
+
+```powershell
+--cookies-from-browser chrome
+```
+
+Use `edge`, `chrome`, `brave`, or `firefox` depending on where you are signed in. If browser-cookie loading fails, export a Netscape-format cookies file and pass it with `--cookies path\to\cookies.txt`.
 
 When `--transcripts` is enabled, the CLI now treats missing transcripts as a blocking condition by default: retryable failures keep getting retried in rounds, and the run exits non-zero if any item still has a permanent transcript failure. Use `--allow-missing-transcripts` to restore the looser behavior.
 
@@ -229,4 +240,4 @@ There is also one opt-in live smoke placeholder in the pytest suite, marked `liv
 ## Notes
 
 - `imageio-ffmpeg` supplies the bundled ffmpeg path for OpenAI ASR normalization and chunking.
-- On heavily rate-limited or bot-protected IPs, YouTube watch-page fetches and subtitle providers may require cookies or proxies. The CLI now records those provider failures explicitly in output files and CSV exports.
+- On heavily rate-limited or bot-protected IPs, YouTube watch-page fetches, subtitle providers, and ASR audio downloads may require cookies. The CLI now records those provider failures explicitly in output files and CSV exports.
