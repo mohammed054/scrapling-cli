@@ -14,6 +14,7 @@ from scrapling_cli.transcripts.backends import (
     OpenRouterAsrBackend,
     RetryableTranscriptError,
     TranscriptBackendError,
+    TranscriptBackendConfigurationError,
     YouTubeMediaDownloadError,
     YouTubeTranscriptApiBackend,
     YtDlpSubtitleBackend,
@@ -731,6 +732,52 @@ def test_youtube_media_download_error_uses_media_cooldown_scope(tmp_path, caplog
     assert service._scope_rate_limit_streaks["youtube_media"] == 1
     assert "hosted_asr" not in service._scope_rate_limit_streaks
     assert "scope=youtube_media" in caplog.text
+
+
+def test_cookie_copy_error_is_configuration_error(tmp_path):
+    class FailingYDL:
+        def __init__(self, options):
+            self.options = options
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def extract_info(self, url, download):
+            raise RuntimeError("ERROR: Could not copy Chrome cookie database")
+
+    backend = OpenRouterAsrBackend()
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    options = TranscriptOptions(enabled=True, cookies_from_browser="chrome")
+
+    with pytest.raises(TranscriptBackendConfigurationError) as exc_info:
+        backend._download_audio(item, tmp_path, FailingYDL, options)
+
+    assert "Could not read YouTube cookies from chrome" in str(exc_info.value)
+    assert "Close that browser completely" in str(exc_info.value)
+
+
+def test_backend_configuration_error_disables_backend_for_later_items(tmp_path, caplog):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0, retry_attempts=4)
+    backend = FakeBackend(
+        "openrouter_asr",
+        error=TranscriptBackendConfigurationError("Could not read YouTube cookies from chrome"),
+    )
+    service = TranscriptService(options, backends=[backend], cache=TranscriptCache(tmp_path))
+    first = ContentItem(id="first", title="First", url="https://youtube.com/watch?v=first")
+    second = ContentItem(id="second", title="Second", url="https://youtube.com/watch?v=second")
+
+    with caplog.at_level(logging.INFO):
+        first_result = service.resolve_item(first)
+        second_result = service.resolve_item(second)
+
+    assert first_result.status == "unavailable"
+    assert second_result.status == "unavailable"
+    assert backend.calls == 1
+    assert "transcript.backend_disabled backend=openrouter_asr" in caplog.text
+    assert "reason=disabled" in caplog.text
 
 
 def test_asr_waits_for_youtube_media_cooldown(tmp_path, monkeypatch, caplog):

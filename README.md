@@ -136,6 +136,8 @@ Hosted ASR still needs the video audio first. If `yt-dlp` says `Sign in to confi
 
 Use `edge`, `chrome`, `brave`, or `firefox` depending on where you are signed in. If browser-cookie loading fails, export a Netscape-format cookies file and pass it with `--cookies path\to\cookies.txt`.
 
+If Windows reports `Could not copy Chrome cookie database`, close every Chrome window and background process, then retry. If Chrome still fails, set `YTDLP_COOKIES_FROM_BROWSER=edge` or `firefox` in `.env` after signing into YouTube there. The most reliable fallback is exporting a Netscape-format `cookies.txt` file and setting `YTDLP_COOKIES=path\to\cookies.txt`.
+
 When `--transcripts` is enabled, the CLI now treats missing transcripts as a blocking condition by default: retryable failures keep getting retried in rounds, and the run exits non-zero if any item still has a permanent transcript failure. Use `--allow-missing-transcripts` to restore the looser behavior.
 
 If YouTube blocks the current IP, the transcript fields will still record the failure reason instead of collapsing to a generic message.

@@ -29,6 +29,10 @@ class TranscriptBackendError(RuntimeError):
     """Base transcript backend failure."""
 
 
+class TranscriptBackendConfigurationError(TranscriptBackendError):
+    """Backend failure caused by local configuration that retries will not fix."""
+
+
 class RetryableTranscriptError(TranscriptBackendError):
     """Failure that can be retried with backoff."""
 
@@ -167,9 +171,29 @@ def _parse_cookies_from_browser(value: str) -> tuple[str, str | None, str | None
         value.strip(),
     )
     if not match:
-        raise TranscriptBackendError(f"invalid cookies-from-browser value: {value}")
+        raise TranscriptBackendConfigurationError(f"invalid cookies-from-browser value: {value}")
     browser, keyring, profile, container = match.group("name", "keyring", "profile", "container")
     return browser.lower(), profile, keyring.upper() if keyring else None, container
+
+
+def _looks_like_cookie_access_error(error: str) -> bool:
+    lowered = error.lower()
+    return (
+        "cookie database" in lowered
+        or "could not copy" in lowered and "cookie" in lowered
+        or "could not load cookies" in lowered
+        or "failed to decrypt" in lowered and "cookie" in lowered
+    )
+
+
+def _cookie_access_error_message(error: str, options: TranscriptOptions) -> str:
+    source = options.cookies_from_browser or str(options.cookies_file or "configured cookies")
+    cleaned = error.replace("ERROR: ERROR:", "ERROR:").strip()
+    return (
+        f"Could not read YouTube cookies from {source}. Close that browser completely and retry, "
+        "switch YTDLP_COOKIES_FROM_BROWSER to another signed-in browser, or export cookies.txt "
+        f"and set YTDLP_COOKIES to its path. Original error: {cleaned}"
+    )
 
 
 def _yt_dlp_request_options(options: TranscriptOptions) -> dict:
@@ -396,7 +420,10 @@ class OpenAIAsrBackend:
             try:
                 info = ydl.extract_info(item.url, download=True)
             except Exception as exc:  # noqa: BLE001
-                raise YouTubeMediaDownloadError(str(exc)) from exc
+                error = str(exc)
+                if _looks_like_cookie_access_error(error):
+                    raise TranscriptBackendConfigurationError(_cookie_access_error_message(error, options)) from exc
+                raise YouTubeMediaDownloadError(error) from exc
             path = Path(ydl.prepare_filename(info))
         if not path.exists():
             raise YouTubeMediaDownloadError("yt-dlp did not produce an audio file")

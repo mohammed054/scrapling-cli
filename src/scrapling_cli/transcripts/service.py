@@ -12,6 +12,7 @@ from .backends import (
     OpenRouterAsrBackend,
     RetryableTranscriptError,
     TranscriptBackend,
+    TranscriptBackendConfigurationError,
     TranscriptBackendError,
     YouTubeTranscriptApiBackend,
     YtDlpSubtitleBackend,
@@ -92,6 +93,7 @@ class TranscriptService:
         self._next_request_at = 0.0
         self._scope_next_request_at: dict[str, float] = {}
         self._scope_rate_limit_streaks: dict[str, int] = {}
+        self._disabled_backend_errors: dict[str, str] = {}
 
     def _default_backends(self) -> list[TranscriptBackend]:
         backends: list[TranscriptBackend] = [
@@ -269,6 +271,24 @@ class TranscriptService:
                     backoff_seconds,
                 )
                 time.sleep(backoff_seconds)
+            except TranscriptBackendConfigurationError as exc:
+                error = _compact_transcript_error(str(exc))
+                self._disabled_backend_errors[backend.name] = error
+                logger.error(
+                    "transcript.backend_disabled backend=%s video_id=%s error=%s",
+                    backend.name,
+                    item.id,
+                    error,
+                )
+                return (
+                    TranscriptResult.unavailable(
+                        source=backend.name,
+                        language=self.options.language,
+                        error=error,
+                        backend_fingerprint=backend.fingerprint(self.options),
+                    ),
+                    False,
+                )
             except TranscriptBackendError as exc:
                 error = _compact_transcript_error(str(exc))
                 logger.warning(
@@ -326,6 +346,17 @@ class TranscriptService:
                     error,
                 )
                 errors.append(f"{backend.name}: {error}")
+                continue
+
+            disabled_error = self._disabled_backend_errors.get(backend.name)
+            if disabled_error:
+                logger.info(
+                    "transcript.backend_skip backend=%s video_id=%s reason=disabled error=%s",
+                    backend.name,
+                    item.id,
+                    disabled_error,
+                )
+                errors.append(f"{backend.name}: {disabled_error}")
                 continue
 
             result, cacheable = self._with_retry(backend, item)
