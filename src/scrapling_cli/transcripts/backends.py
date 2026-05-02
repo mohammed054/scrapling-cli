@@ -463,7 +463,7 @@ class OpenRouterAsrBackend(OpenAIAsrBackend):
     endpoint = "https://openrouter.ai/api/v1/audio/transcriptions"
 
     def fingerprint(self, options: TranscriptOptions) -> str:
-        return f"{self.name}:{options.openrouter_asr_model}:{options.language}:mono16kmp3-v1"
+        return f"{self.name}:{options.openrouter_asr_model}:{options.language}:mono16kmp3-openrouter-json-v2"
 
     def _require_dependencies(self):
         try:
@@ -524,7 +524,29 @@ class OpenRouterAsrBackend(OpenAIAsrBackend):
                 error="missing OPENROUTER_API_KEY",
                 backend_fingerprint=self.fingerprint(options),
             )
-        return super().fetch(item, options)
+        imageio_ffmpeg, _OpenAI, YoutubeDL = self._require_dependencies()
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        with tempfile.TemporaryDirectory(prefix=f"scrapling-openrouter-asr-{item.id}-") as temp_dir:
+            workdir = Path(temp_dir)
+            downloaded = self._download_audio(item, workdir, YoutubeDL, options)
+            normalized = workdir / "normalized.mp3"
+            self._normalize_audio(downloaded, normalized, ffmpeg_exe)
+            chunks = self._chunk_audio(normalized, ffmpeg_exe)
+            merged = self._transcribe_chunks(chunks, options, None)
+
+        if not merged:
+            return TranscriptResult.unavailable(
+                source=self.name,
+                language=options.language,
+                error="OpenRouter ASR returned empty text",
+                backend_fingerprint=self.fingerprint(options),
+            )
+        return TranscriptResult.available(
+            source=self.name,
+            text=merged,
+            language=options.language,
+            backend_fingerprint=self.fingerprint(options),
+        )
 
 
 def _openrouter_error_message(status: int, body: str) -> str:

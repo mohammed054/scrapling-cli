@@ -317,6 +317,38 @@ def test_openrouter_asr_backend_posts_base64_audio(monkeypatch, tmp_path):
     assert captured["payload"]["input_audio"]["format"] == "mp3"
 
 
+def test_openrouter_asr_backend_fetch_does_not_require_openai_key(monkeypatch, tmp_path):
+    backend = OpenRouterAsrBackend()
+
+    class DummyFFmpeg:
+        @staticmethod
+        def get_ffmpeg_exe():
+            return "ffmpeg"
+
+    class DummyYDL:
+        pass
+
+    audio_path = tmp_path / "source.m4a"
+    chunk_path = tmp_path / "chunk_000.mp3"
+    audio_path.write_bytes(b"audio")
+    chunk_path.write_bytes(b"chunk")
+
+    monkeypatch.setattr(backend, "_require_dependencies", lambda: (DummyFFmpeg, None, DummyYDL))
+    monkeypatch.setattr(backend, "_download_audio", lambda item, workdir, YoutubeDL, options: audio_path)
+    monkeypatch.setattr(backend, "_normalize_audio", lambda input_path, output_path, ffmpeg_exe: output_path.write_bytes(b"norm"))
+    monkeypatch.setattr(backend, "_chunk_audio", lambda normalized_path, ffmpeg_exe: [chunk_path])
+    monkeypatch.setattr(backend, "_transcribe_chunks", lambda chunks, options, _OpenAI: "openrouter text")
+
+    result = backend.fetch(
+        ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid"),
+        TranscriptOptions(enabled=True, openai_api_key="", openrouter_api_key="test-openrouter-key"),
+    )
+
+    assert result.status == "available"
+    assert result.text == "openrouter text"
+    assert result.source == "openrouter_asr"
+
+
 def test_default_service_uses_openrouter_asr_when_key_is_available(tmp_path):
     options = TranscriptOptions(
         enabled=True,
