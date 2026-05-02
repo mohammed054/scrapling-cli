@@ -51,6 +51,7 @@ RATE_LIMIT_SCOPE_BY_BACKEND = {
     "yt_dlp": "youtube",
     "openai_asr": "youtube",
 }
+VISIBLE_SLEEP_THRESHOLD_SECONDS = 30.0
 
 
 def _compact_transcript_error(error: str) -> str:
@@ -129,7 +130,8 @@ class TranscriptService:
             self._scope_next_request_at[scope] = scheduled_at + delay_seconds
         sleep_for = scheduled_at - now
         if sleep_for > 0:
-            logger.debug(
+            log = logger.info if sleep_for >= VISIBLE_SLEEP_THRESHOLD_SECONDS else logger.debug
+            log(
                 "transcript.pacing backend=%s scope=%s video_id=%s sleep_seconds=%.2f",
                 backend.name,
                 scope,

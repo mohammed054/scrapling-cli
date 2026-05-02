@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import threading
 import time
 import urllib.request
@@ -485,7 +486,7 @@ def test_retryable_backoff_is_exponential(tmp_path, monkeypatch):
     assert sleeps == [1.0, 2.0, 4.0]
 
 
-def test_rate_limited_failure_extends_global_cooldown(tmp_path, monkeypatch):
+def test_rate_limited_failure_extends_global_cooldown(tmp_path, monkeypatch, caplog):
     options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=2, retry_attempts=2)
     failing = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("HTTP Error 429: Too Many Requests"))
     fallback = FakeBackend(
@@ -507,10 +508,13 @@ def test_rate_limited_failure_extends_global_cooldown(tmp_path, monkeypatch):
     monkeypatch.setattr(service_mod.time, "sleep", _sleep)
     monkeypatch.setattr(service_mod.time, "monotonic", lambda: clock["now"])
 
-    result = service.resolve_item(item)
+    with caplog.at_level(logging.INFO):
+        result = service.resolve_item(item)
 
     assert result.status == "available"
     assert sleeps == [300.0]
+    assert "transcript.pacing backend=yt_dlp" in caplog.text
+    assert "sleep_seconds=300.00" in caplog.text
 
 
 def test_rate_limited_scope_cooldown_escalates_across_fallback_backends(tmp_path, monkeypatch):
