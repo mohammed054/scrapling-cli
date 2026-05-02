@@ -38,7 +38,7 @@ class FakeBackend:
 
 
 def test_service_uses_first_available_backend(tmp_path):
-    options = TranscriptOptions(enabled=True, cache_dir=tmp_path)
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0)
     primary = FakeBackend(
         "youtube_transcript_api",
         TranscriptResult.available(source="youtube_transcript_api", text="manual", language="en", backend_fingerprint="a"),
@@ -71,8 +71,8 @@ def test_service_falls_back_after_retryable_error(tmp_path):
 
 
 def test_retryable_failure_is_not_cached(tmp_path):
-    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, retry_attempts=2, request_delay_seconds=0)
-    backend = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("429 Too Many Requests"))
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, retry_attempts=1, request_delay_seconds=0)
+    backend = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("connection reset by peer"))
     service = TranscriptService(options, backends=[backend], cache=TranscriptCache(tmp_path))
 
     first = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
@@ -275,32 +275,41 @@ class _FakeCouldNotRetrieveTranscript(Exception):
     """Minimal stand-in for youtube_transcript_api.CouldNotRetrieveTranscript."""
 
 
+class _FakeRequestBlocked(_FakeCouldNotRetrieveTranscript):
+    """Minimal stand-in for youtube_transcript_api.RequestBlocked."""
+
+
+class _FakeIpBlocked(_FakeRequestBlocked):
+    """Minimal stand-in for youtube_transcript_api.IpBlocked."""
+
+
 class _FakePoTokenRequired(_FakeCouldNotRetrieveTranscript):
     """Minimal stand-in for youtube_transcript_api.PoTokenRequired."""
 
 
-class _FakeIpBlocked(_FakeCouldNotRetrieveTranscript):
-    """Minimal stand-in for youtube_transcript_api.IpBlocked."""
+class _FakeNoTranscriptFound(_FakeCouldNotRetrieveTranscript):
+    """Minimal stand-in for youtube_transcript_api.NoTranscriptFound."""
 
 
-def test_non_retryable_error_not_retried_falls_through_to_next_backend(tmp_path, monkeypatch):
-    """IpBlocked (CouldNotRetrieveTranscript subclass) must raise TranscriptBackendError,
-    not RetryableTranscriptError, so the service tries yt-dlp without extra retries."""
-    options = TranscriptOptions(enabled=True, cache_dir=tmp_path)
+def test_permanent_error_not_retried_falls_through_to_next_backend(tmp_path, monkeypatch):
+    """Permanent transcript API failures should not burn retry attempts."""
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0)
 
     # Patch _load_transcript_api_exceptions to return our fake hierarchy
     import scrapling_cli.transcripts.backends as _backends_mod
     monkeypatch.setattr(
         _backends_mod,
         "_load_transcript_api_exceptions",
-        lambda: (_FakeCouldNotRetrieveTranscript, _FakePoTokenRequired),
+        lambda: {
+            "retryable": (_FakeRequestBlocked,),
+            "permanent": (_FakeNoTranscriptFound, _FakePoTokenRequired),
+        },
     )
 
     yta_backend = YouTubeTranscriptApiBackend()
-    # Make _get_api() return an object whose .list() raises IpBlocked
     class _FakeApi:
         def list(self, video_id):
-            raise _FakeIpBlocked("Your IP has been blocked")
+            raise _FakeNoTranscriptFound("no transcript")
     monkeypatch.setattr(yta_backend, "_get_api", lambda options: _FakeApi())
 
     fallback = FakeBackend(
@@ -312,27 +321,27 @@ def test_non_retryable_error_not_retried_falls_through_to_next_backend(tmp_path,
     item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
     result = service.resolve_item(item)
 
-    # Should have fallen through to yt-dlp and succeeded
     assert result.status == "available"
     assert result.text == "fallback text"
-    # yt_dlp backend called exactly once (no extra retries on yta_backend's error)
     assert fallback.calls == 1
 
 
 def test_non_retryable_error_raises_backend_error_not_retryable(monkeypatch):
-    """YouTubeTranscriptApiBackend.fetch() must raise TranscriptBackendError
-    (not RetryableTranscriptError) when api.list() raises CouldNotRetrieveTranscript."""
+    """YouTubeTranscriptApiBackend.fetch() must not retry permanent failures."""
     import scrapling_cli.transcripts.backends as _backends_mod
     monkeypatch.setattr(
         _backends_mod,
         "_load_transcript_api_exceptions",
-        lambda: (_FakeCouldNotRetrieveTranscript, _FakePoTokenRequired),
+        lambda: {
+            "retryable": (_FakeRequestBlocked,),
+            "permanent": (_FakeNoTranscriptFound, _FakePoTokenRequired),
+        },
     )
 
     backend = YouTubeTranscriptApiBackend()
     class _FakeApi:
         def list(self, video_id):
-            raise _FakeIpBlocked("blocked")
+            raise _FakeNoTranscriptFound("no transcript")
     monkeypatch.setattr(backend, "_get_api", lambda options: _FakeApi())
 
     item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
@@ -342,8 +351,35 @@ def test_non_retryable_error_raises_backend_error_not_retryable(monkeypatch):
         backend.fetch(item, options)
 
     assert not isinstance(exc_info.value, RetryableTranscriptError), (
-        "IpBlocked must NOT become a RetryableTranscriptError"
+        "permanent transcript failures must NOT become RetryableTranscriptError"
     )
+
+
+def test_request_blocked_is_retryable(monkeypatch):
+    """YouTube bot/IP blocks should enter the rate-limit cooldown path."""
+    import scrapling_cli.transcripts.backends as _backends_mod
+    monkeypatch.setattr(
+        _backends_mod,
+        "_load_transcript_api_exceptions",
+        lambda: {
+            "retryable": (_FakeRequestBlocked,),
+            "permanent": (_FakeNoTranscriptFound, _FakePoTokenRequired),
+        },
+    )
+
+    backend = YouTubeTranscriptApiBackend()
+
+    class _FakeApi:
+        def list(self, video_id):
+            raise _FakeIpBlocked("Your IP has been blocked")
+
+    monkeypatch.setattr(backend, "_get_api", lambda options: _FakeApi())
+
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    options = TranscriptOptions(enabled=True)
+
+    with pytest.raises(RetryableTranscriptError):
+        backend.fetch(item, options)
 
 
 def test_po_token_required_is_non_retryable(monkeypatch):
@@ -352,7 +388,10 @@ def test_po_token_required_is_non_retryable(monkeypatch):
     monkeypatch.setattr(
         _backends_mod,
         "_load_transcript_api_exceptions",
-        lambda: (_FakeCouldNotRetrieveTranscript, _FakePoTokenRequired),
+        lambda: {
+            "retryable": (_FakeRequestBlocked,),
+            "permanent": (_FakeNoTranscriptFound, _FakePoTokenRequired),
+        },
     )
 
     backend = YouTubeTranscriptApiBackend()
@@ -377,7 +416,10 @@ def test_genuine_network_error_is_still_retryable(monkeypatch):
     monkeypatch.setattr(
         _backends_mod,
         "_load_transcript_api_exceptions",
-        lambda: (_FakeCouldNotRetrieveTranscript, _FakePoTokenRequired),
+        lambda: {
+            "retryable": (_FakeRequestBlocked,),
+            "permanent": (_FakeNoTranscriptFound, _FakePoTokenRequired),
+        },
     )
 
     backend = YouTubeTranscriptApiBackend()
@@ -455,7 +497,7 @@ def test_rate_limited_failure_extends_global_cooldown(tmp_path, monkeypatch):
     result = service.resolve_item(item)
 
     assert result.status == "available"
-    assert sleeps == [30.0]
+    assert sleeps == [300.0]
 
 
 def test_rate_limited_scope_cooldown_escalates_across_fallback_backends(tmp_path, monkeypatch):
@@ -484,7 +526,7 @@ def test_rate_limited_scope_cooldown_escalates_across_fallback_backends(tmp_path
     result = service.resolve_item(item)
 
     assert result.status == "available"
-    assert sleeps == [30.0, 60.0]
+    assert sleeps == [300.0, 600.0]
 
 
 def test_ytdlp_request_options_disable_nested_retries():

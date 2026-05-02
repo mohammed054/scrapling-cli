@@ -68,7 +68,11 @@ def _resolve_transcripts_or_raise(transcript_service: TranscriptService, items, 
             )
 
         retry_round += 1
-        sleep_seconds = max(30.0, max(1.0, options.request_delay_seconds) * 4)
+        sleep_seconds = max(
+            30.0,
+            max(1.0, options.request_delay_seconds) * 4,
+            transcript_service.seconds_until_next_request(),
+        )
         logger.warning(
             "transcript.retry_round round=%s unresolved=%s retryable=%s sleep_seconds=%.2f",
             retry_round,

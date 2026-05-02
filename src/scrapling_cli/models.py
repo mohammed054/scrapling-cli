@@ -131,6 +131,8 @@ class TranscriptOptions:
     workers: int = 1
     request_delay_seconds: float = 4.0
     retry_attempts: int = 4
+    rate_limit_cooldown_seconds: float = 300.0
+    rate_limit_cooldown_cap_seconds: float = 3600.0
     require_success: bool = True
     allow_hosted_asr: Optional[bool] = None
     asr_model: str = "gpt-4o-mini-transcribe"

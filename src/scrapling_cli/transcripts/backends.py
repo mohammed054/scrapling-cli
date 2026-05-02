@@ -41,20 +41,50 @@ class TranscriptBackend(Protocol):
 
 def _load_transcript_api_exceptions():
     try:
-        from youtube_transcript_api import (
-            CouldNotRetrieveTranscript,
-            IpBlocked,
-            PoTokenRequired,
-            RequestBlocked,
-        )
+        import youtube_transcript_api as transcript_api
     except ImportError:  # pragma: no cover - exercised in runtime environments without deps
-        return tuple()
-    return CouldNotRetrieveTranscript, PoTokenRequired, IpBlocked, RequestBlocked
+        return {"retryable": tuple(), "permanent": tuple()}
+
+    def _classes(*names: str) -> tuple[type[Exception], ...]:
+        return tuple(
+            cls
+            for name in names
+            if isinstance((cls := getattr(transcript_api, name, None)), type)
+            and issubclass(cls, Exception)
+        )
+
+    return {
+        "retryable": _classes(
+            "RequestBlocked",
+            "IpBlocked",
+            "YouTubeRequestFailed",
+        ),
+        "permanent": _classes(
+            "AgeRestricted",
+            "FailedToCreateConsentCookie",
+            "InvalidVideoId",
+            "NoTranscriptFound",
+            "NotTranslatable",
+            "PoTokenRequired",
+            "TranscriptsDisabled",
+            "TranslationLanguageNotAvailable",
+            "VideoUnavailable",
+            "VideoUnplayable",
+            "YouTubeDataUnparsable",
+        ),
+    }
+
+
+def _is_retryable_transcript_api_error(exc: Exception) -> bool:
+    exception_groups = _load_transcript_api_exceptions()
+    retryable = exception_groups.get("retryable", tuple())
+    return bool(retryable) and isinstance(exc, retryable)
 
 
 def _is_non_retryable_transcript_api_error(exc: Exception) -> bool:
-    exception_types = _load_transcript_api_exceptions()
-    return bool(exception_types) and isinstance(exc, exception_types)
+    exception_groups = _load_transcript_api_exceptions()
+    permanent = exception_groups.get("permanent", tuple())
+    return bool(permanent) and isinstance(exc, permanent)
 
 
 def _language_matches(candidate: str, requested: str) -> bool:
@@ -161,6 +191,8 @@ class YouTubeTranscriptApiBackend:
         try:
             transcript_list = api.list(item.id)
         except Exception as exc:  # noqa: BLE001
+            if _is_retryable_transcript_api_error(exc):
+                raise RetryableTranscriptError(str(exc)) from exc
             if _is_non_retryable_transcript_api_error(exc):
                 raise TranscriptBackendError(str(exc)) from exc
             raise RetryableTranscriptError(str(exc)) from exc
@@ -198,6 +230,8 @@ class YouTubeTranscriptApiBackend:
         try:
             fetched = transcript.fetch()
         except Exception as exc:  # noqa: BLE001
+            if _is_retryable_transcript_api_error(exc):
+                raise RetryableTranscriptError(str(exc)) from exc
             if _is_non_retryable_transcript_api_error(exc):
                 raise TranscriptBackendError(str(exc)) from exc
             raise RetryableTranscriptError(str(exc)) from exc

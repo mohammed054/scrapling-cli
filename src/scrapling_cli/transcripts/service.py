@@ -51,8 +51,6 @@ RATE_LIMIT_SCOPE_BY_BACKEND = {
     "yt_dlp": "youtube",
     "openai_asr": "youtube",
 }
-RATE_LIMIT_COOLDOWN_BASE_SECONDS = 30.0
-RATE_LIMIT_COOLDOWN_CAP_SECONDS = 15 * 60.0
 
 
 class TranscriptService:
@@ -98,6 +96,14 @@ class TranscriptService:
         with self._request_lock:
             self._scope_rate_limit_streaks.pop(scope, None)
 
+    def seconds_until_next_request(self) -> float:
+        with self._request_lock:
+            scheduled_at = max(
+                [self._next_request_at, *self._scope_next_request_at.values()],
+                default=0.0,
+            )
+        return max(0.0, scheduled_at - time.monotonic())
+
     def _pace_request(self, backend: TranscriptBackend, item: ContentItem) -> None:
         delay_seconds = max(0.0, self.options.request_delay_seconds)
         scope = self._rate_limit_scope(backend)
@@ -140,13 +146,11 @@ class TranscriptService:
             now = time.monotonic()
             streak = self._scope_rate_limit_streaks.get(scope, 0) + 1
             self._scope_rate_limit_streaks[scope] = streak
+            base_cooldown_seconds = max(1.0, self.options.rate_limit_cooldown_seconds)
+            cooldown_cap_seconds = max(base_cooldown_seconds, self.options.rate_limit_cooldown_cap_seconds)
             cooldown_seconds = min(
-                RATE_LIMIT_COOLDOWN_CAP_SECONDS,
-                max(
-                    RATE_LIMIT_COOLDOWN_BASE_SECONDS,
-                    max(1.0, self.options.request_delay_seconds) * 4,
-                )
-                * (2 ** (streak - 1)),
+                cooldown_cap_seconds,
+                base_cooldown_seconds * (2 ** (streak - 1)),
             )
             resume_at = now + cooldown_seconds
             self._next_request_at = max(self._next_request_at, resume_at)

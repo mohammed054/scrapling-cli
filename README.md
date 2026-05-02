@@ -54,13 +54,36 @@ Useful transcript controls:
 --workers 1
 --transcript-delay 4.0
 --transcript-retries 4
+--transcript-rate-limit-cooldown 300
+--transcript-rate-limit-cap 3600
 --allow-missing-transcripts
 --allow-hosted-asr
 --no-hosted-asr
 --asr-model gpt-4o-mini-transcribe
 ```
 
-Transcript fetching now keeps only one transcript network fetch in flight at a time by default, spaces requests more conservatively, shares cooldown state across YouTube-backed transcript fallbacks after `429` or bot-block responses, stops retrying the same backend once a real rate limit is detected, and avoids stacking yt-dlp's internal retries on top of the service retry loop.
+The interactive CLI prints a large `SCRAPPING` startup banner plus run/result panels. Add `--no-banner` for scheduled jobs or plain log output.
+
+Transcript fetching now keeps only one transcript network fetch in flight at a time by default, spaces requests more conservatively, shares cooldown state across YouTube-backed transcript fallbacks after `429` or bot-block responses, treats YouTube bot/IP blocks as retryable cooldown events, stops retrying the same backend once a real rate limit is detected, and avoids stacking yt-dlp's internal retries on top of the service retry loop.
+
+For a transcript-first run where waiting is acceptable, use a slower command:
+
+```bash
+python scrapling_cli.py \
+  --channel "https://www.youtube.com/@aiDotEngineer" \
+  --top-percent 15 \
+  --rank-by weighted \
+  --recency-decay \
+  --clamp-outliers \
+  --transcripts \
+  --workers 1 \
+  --transcript-delay 12 \
+  --transcript-retries 8 \
+  --transcript-rate-limit-cooldown 600 \
+  --transcript-rate-limit-cap 7200 \
+  --export-csv \
+  --output-dir output
+```
 
 If transcript coverage matters more than speed, set `OPENAI_API_KEY` and leave hosted ASR enabled so the pipeline still has a fallback when YouTube subtitle paths are blocked.
 

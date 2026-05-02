@@ -7,6 +7,7 @@ from rich.console import Console
 
 from .app import TranscriptResolutionError, run_incremental_fetch
 from .cli_common import add_transcript_arguments, build_transcript_options, parse_date_arg
+from .cli_ui import render_banner, render_key_values, render_result
 from .logging_utils import setup_logging
 from .models import FetchNewRunConfig
 
@@ -31,6 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-from", type=parse_date_arg, default=None, help="Override last-run date")
     add_transcript_arguments(parser)
     parser.add_argument("--log-file", default=None, help="Optional log file path")
+    parser.add_argument("--no-banner", action="store_true", help="Skip the startup banner")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug logging")
     return parser
 
@@ -50,12 +52,39 @@ def main(argv: list[str] | None = None) -> int:
         log_file=Path(args.log_file) if args.log_file else None,
         transcript_options=build_transcript_options(args),
     )
+    if not args.no_banner:
+        render_banner(console, subtitle="Fresh-content fetcher warming up")
+    render_key_values(
+        console,
+        title="Run Config",
+        rows=[
+            ("Channels", len(args.channels)),
+            ("Days back", args.days_back),
+            ("Transcripts", "on" if args.transcripts else "off"),
+            ("Workers", config.transcript_options.workers if args.transcripts else "n/a"),
+            ("Output", config.output_dir),
+            ("State file", config.state_file),
+        ],
+    )
     try:
         result = run_incremental_fetch(config)
     except TranscriptResolutionError as exc:
-        console.print(f"[red]Transcript resolution failed.[/red] {exc}")
+        render_result(
+            console,
+            title="Transcript Resolution Failed",
+            rows=[("Reason", exc)],
+            style="red",
+        )
         return 1
-    console.print(f"[green]Done.[/green] New files written: {result.total_written}")
+    render_result(
+        console,
+        title="Done",
+        rows=[
+            ("Channels", len(result.channel_results)),
+            ("New files written", result.total_written),
+        ],
+        style="green",
+    )
     return 0
 
 

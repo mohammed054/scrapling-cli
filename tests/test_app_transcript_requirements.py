@@ -25,6 +25,9 @@ class SequencedTranscriptService:
         error = (result.error or "").lower()
         return result.status == "unavailable" and "429" in error
 
+    def seconds_until_next_request(self):
+        return 0.0
+
 
 def test_resolve_transcripts_or_raise_retries_until_item_is_available(monkeypatch):
     item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
@@ -81,6 +84,8 @@ def test_build_transcript_options_requires_success_by_default():
     options = build_transcript_options(args)
 
     assert options.require_success is True
+    assert options.rate_limit_cooldown_seconds == 300.0
+    assert options.rate_limit_cooldown_cap_seconds == 3600.0
 
 
 def test_build_transcript_options_can_allow_missing_transcripts():

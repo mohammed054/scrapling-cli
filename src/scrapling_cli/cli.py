@@ -7,6 +7,7 @@ from rich.console import Console
 
 from .app import TranscriptResolutionError, run_channel_analysis
 from .cli_common import add_transcript_arguments, build_transcript_options, parse_date_arg
+from .cli_ui import render_banner, render_key_values, render_result
 from .logging_utils import setup_logging
 from .models import ChannelRunConfig
 
@@ -49,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     misc = parser.add_argument_group("Misc")
     misc.add_argument("--log-file", default=None, help="Optional log file path")
+    misc.add_argument("--no-banner", action="store_true", help="Skip the startup banner")
     misc.add_argument("--verbose", "-v", action="store_true", help="Enable debug logging")
     return parser
 
@@ -78,23 +80,61 @@ def main(argv: list[str] | None = None) -> int:
         transcript_options=build_transcript_options(args),
     )
 
+    if not args.no_banner:
+        render_banner(console, subtitle="Channel analyzer warming up")
+    render_key_values(
+        console,
+        title="Run Config",
+        rows=[
+            ("Channel", args.channel),
+            ("Top percent", f"{args.top_percent:g}%"),
+            ("Rank by", args.rank_by),
+            ("Transcripts", "on" if args.transcripts else "off"),
+            ("Workers", config.transcript_options.workers if args.transcripts else "n/a"),
+            ("Output", config.output_dir),
+        ],
+    )
+
     try:
         result = run_channel_analysis(config)
     except TranscriptResolutionError as exc:
-        console.print(f"[red]Transcript resolution failed.[/red] {exc}")
+        render_result(
+            console,
+            title="Transcript Resolution Failed",
+            rows=[("Reason", exc)],
+            style="red",
+        )
         return 1
     if not result.top_videos and not result.top_shorts:
-        console.print("[yellow]No items matched the current filters.[/yellow]")
+        render_result(
+            console,
+            title="No Matches",
+            rows=[("Status", "No items matched the current filters.")],
+            style="yellow",
+        )
         return 0
     if args.dry_run:
-        console.print(
-            f"[green]Dry run complete.[/green] {len(result.top_videos)} videos and {len(result.top_shorts)} shorts selected."
+        render_result(
+            console,
+            title="Dry Run Complete",
+            rows=[
+                ("Videos selected", len(result.top_videos)),
+                ("Shorts selected", len(result.top_shorts)),
+            ],
+            style="green",
         )
         return 0
 
-    console.print(
-        f"[green]Done.[/green] Output root: {result.output_root} | "
-        f"videos: {len(result.top_videos)} | shorts: {len(result.top_shorts)}"
+    render_result(
+        console,
+        title="Done",
+        rows=[
+            ("Output root", result.output_root),
+            ("Videos", len(result.top_videos)),
+            ("Shorts", len(result.top_shorts)),
+            ("CSV files", len(result.csv_paths)),
+        ],
+        style="green",
     )
     return 0
 

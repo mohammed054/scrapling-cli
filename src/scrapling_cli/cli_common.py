@@ -38,6 +38,18 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
         help="Retry attempts per transcript backend for retryable failures (default: 4)",
     )
     group.add_argument(
+        "--transcript-rate-limit-cooldown",
+        type=float,
+        default=300.0,
+        help="Base cooldown in seconds after YouTube 429/bot-block responses (default: 300)",
+    )
+    group.add_argument(
+        "--transcript-rate-limit-cap",
+        type=float,
+        default=3600.0,
+        help="Maximum cooldown in seconds after repeated YouTube 429/bot-block responses (default: 3600)",
+    )
+    group.add_argument(
         "--allow-missing-transcripts",
         dest="require_transcript_success",
         action="store_false",
@@ -72,6 +84,8 @@ def build_transcript_options(args: Namespace) -> TranscriptOptions:
         workers=max(1, args.workers),
         request_delay_seconds=max(0.0, args.transcript_delay),
         retry_attempts=max(1, args.transcript_retries),
+        rate_limit_cooldown_seconds=max(1.0, args.transcript_rate_limit_cooldown),
+        rate_limit_cooldown_cap_seconds=max(1.0, args.transcript_rate_limit_cap),
         require_success=bool(args.require_transcript_success),
         allow_hosted_asr=args.allow_hosted_asr,
         asr_model=args.asr_model,
