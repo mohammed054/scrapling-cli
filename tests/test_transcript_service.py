@@ -17,7 +17,7 @@ from scrapling_cli.transcripts.backends import (
     _yt_dlp_request_options,
 )
 from scrapling_cli.transcripts.cache import TranscriptCache
-from scrapling_cli.transcripts.service import TranscriptService
+from scrapling_cli.transcripts.service import TranscriptService, _compact_transcript_error
 
 
 class FakeBackend:
@@ -35,6 +35,19 @@ class FakeBackend:
         if self._error:
             raise self._error
         return self._result
+
+
+def test_compact_transcript_error_summarizes_ip_blocks():
+    raw_error = """
+    Could not retrieve a transcript for the video https://www.youtube.com/watch?v=vid!
+
+    YouTube is blocking requests from your IP. This usually is due to one of the following reasons:
+    - You have done too many requests and your IP has been blocked by YouTube
+    """
+
+    assert _compact_transcript_error(raw_error) == (
+        "ip blocked: YouTube is blocking transcript requests from this IP"
+    )
 
 
 def test_service_uses_first_available_backend(tmp_path):

@@ -246,3 +246,36 @@ def test_fetch_channel_entries_sets_channel_name_from_tab_scrape(monkeypatch):
     assert len(result.items) == 1
     assert result.items[0].channel == "IBM Technology"
     assert result.items[0].channel_url == "https://www.youtube.com/ibmtechnology"
+
+
+def test_fetch_channel_entries_skips_enrichment_delay_during_cooldown(monkeypatch):
+    import scrapling_cli.fetcher as fetcher_mod
+
+    def fake_scrape_tab(channel_url, tab, *, max_pages=30):
+        return (
+            [
+                ContentItem(id="a", title="A", url="https://www.youtube.com/watch?v=a"),
+                ContentItem(id="b", title="B", url="https://www.youtube.com/watch?v=b"),
+            ],
+            "IBM Technology",
+        )
+
+    def fake_enrich(item):
+        fetcher_mod._watch_page_enrichment_resume_at = 100.0
+        return item
+
+    sleeps = []
+
+    monkeypatch.setattr(fetcher_mod, "_scrape_tab", fake_scrape_tab)
+    monkeypatch.setattr(fetcher_mod, "enrich_content_item", fake_enrich)
+    monkeypatch.setattr(fetcher_mod.time, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(fetcher_mod.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    fetch_channel_entries(
+        "https://www.youtube.com/ibmtechnology",
+        enrich_pages=True,
+        include_videos=True,
+        include_shorts=False,
+    )
+
+    assert sleeps == []

@@ -733,7 +733,8 @@ def fetch_channel_entries(
             if progress_callback:
                 progress_callback(index, len(candidates), item.title)
             enrich_content_item(item)
-            time.sleep(0.3)
+            if _watch_page_cooldown_remaining() <= 0:
+                time.sleep(0.3)
 
     final_name = channel_name or channel_input
     return ChannelFetchResult(

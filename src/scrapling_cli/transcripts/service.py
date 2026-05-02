@@ -53,6 +53,17 @@ RATE_LIMIT_SCOPE_BY_BACKEND = {
 }
 
 
+def _compact_transcript_error(error: str) -> str:
+    if not error:
+        return ""
+    lowered = error.lower()
+    if "youtube is blocking requests from your ip" in lowered:
+        return "ip blocked: YouTube is blocking transcript requests from this IP"
+    lines = [line.strip() for line in error.splitlines() if line.strip()]
+    compact = lines[0] if lines else error.strip()
+    return compact[:500]
+
+
 class TranscriptService:
     def __init__(
         self,
@@ -163,7 +174,7 @@ class TranscriptService:
             attempt,
             streak,
             cooldown_seconds,
-            error,
+            _compact_transcript_error(error),
         )
         return True
 
@@ -176,8 +187,9 @@ class TranscriptService:
                     self._pace_request(backend, item)
                     return backend.fetch(item, self.options), True
             except RetryableTranscriptError as exc:
-                error = str(exc)
-                cooled_down = self._extend_rate_limit_cooldown(backend, item, attempt=attempt, error=error)
+                raw_error = str(exc)
+                error = _compact_transcript_error(raw_error)
+                cooled_down = self._extend_rate_limit_cooldown(backend, item, attempt=attempt, error=raw_error)
                 logger.warning(
                     "transcript.retry backend=%s scope=%s video_id=%s attempt=%s error=%s",
                     backend.name,
@@ -216,17 +228,18 @@ class TranscriptService:
                 )
                 time.sleep(backoff_seconds)
             except TranscriptBackendError as exc:
+                error = _compact_transcript_error(str(exc))
                 logger.warning(
                     "transcript.backend_error backend=%s video_id=%s error=%s",
                     backend.name,
                     item.id,
-                    exc,
+                    error,
                 )
                 return (
                     TranscriptResult.unavailable(
                         source=backend.name,
                         language=self.options.language,
-                        error=str(exc),
+                        error=error,
                         backend_fingerprint=backend.fingerprint(self.options),
                     ),
                     True,
