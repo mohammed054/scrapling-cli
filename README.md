@@ -138,6 +138,8 @@ Use `edge`, `chrome`, `brave`, or `firefox` depending on where you are signed in
 
 If Windows reports `Could not copy Chrome cookie database`, close every Chrome window and background process, then retry. If Chrome still fails, set `YTDLP_COOKIES_FROM_BROWSER=edge` or `firefox` in `.env` after signing into YouTube there. The most reliable fallback is exporting a Netscape-format `cookies.txt` file and setting `YTDLP_COOKIES=path\to\cookies.txt`.
 
+If Windows reports `Failed to decrypt with DPAPI`, use the same fallback: run PowerShell as your normal Windows user, try Firefox, or export a Netscape-format `cookies.txt`. DPAPI failures usually mean `yt-dlp` can see the browser profile but Windows will not decrypt the saved cookies for this process.
+
 When `--transcripts` is enabled, the CLI now treats missing transcripts as a blocking condition by default: retryable failures keep getting retried in rounds, and the run exits non-zero if any item still has a permanent transcript failure. Use `--allow-missing-transcripts` to restore the looser behavior.
 
 If YouTube blocks the current IP, the transcript fields will still record the failure reason instead of collapsing to a generic message.

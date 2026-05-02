@@ -182,7 +182,7 @@ def _looks_like_cookie_access_error(error: str) -> bool:
         "cookie database" in lowered
         or "could not copy" in lowered and "cookie" in lowered
         or "could not load cookies" in lowered
-        or "failed to decrypt" in lowered and "cookie" in lowered
+        or "failed to decrypt" in lowered and ("cookie" in lowered or "dpapi" in lowered)
     )
 
 

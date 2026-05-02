@@ -759,6 +759,31 @@ def test_cookie_copy_error_is_configuration_error(tmp_path):
     assert "Close that browser completely" in str(exc_info.value)
 
 
+def test_dpapi_decrypt_error_is_configuration_error(tmp_path):
+    class FailingYDL:
+        def __init__(self, options):
+            self.options = options
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def extract_info(self, url, download):
+            raise RuntimeError("ERROR: Failed to decrypt with DPAPI")
+
+    backend = OpenRouterAsrBackend()
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    options = TranscriptOptions(enabled=True, cookies_from_browser="edge")
+
+    with pytest.raises(TranscriptBackendConfigurationError) as exc_info:
+        backend._download_audio(item, tmp_path, FailingYDL, options)
+
+    assert "Could not read YouTube cookies from edge" in str(exc_info.value)
+    assert "export cookies.txt" in str(exc_info.value)
+
+
 def test_backend_configuration_error_disables_backend_for_later_items(tmp_path, caplog):
     options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0, retry_attempts=4)
     backend = FakeBackend(
@@ -788,7 +813,8 @@ def test_configuration_failure_is_not_retryable_even_with_youtube_rate_limit_tex
         language="en",
         error=(
             "youtube_transcript_api: skipped_after_youtube_rate_limit_hosted_asr_available; "
-            "openrouter_asr: Could not read YouTube cookies from chrome. "
+            "openrouter_asr: ERROR: Failed to decrypt with DPAPI. "
+            "Could not read YouTube cookies from chrome. "
             "Close that browser completely and retry, switch YTDLP_COOKIES_FROM_BROWSER "
             "to another signed-in browser, or export cookies.txt and set YTDLP_COOKIES to its path."
         ),

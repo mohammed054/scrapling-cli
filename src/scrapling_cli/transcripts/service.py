@@ -40,6 +40,7 @@ TRANSIENT_FAILURE_MARKERS = (
 CONFIGURATION_FAILURE_MARKERS = (
     "could not read youtube cookies",
     "could not copy chrome cookie database",
+    "failed to decrypt with dpapi",
     "invalid cookies-from-browser",
     "export cookies.txt",
     "set ytdlp_cookies",
