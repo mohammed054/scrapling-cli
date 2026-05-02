@@ -598,6 +598,32 @@ def test_youtube_subtitle_backend_is_skipped_after_rate_limit_when_hosted_asr_ex
     assert sleeps == []
 
 
+def test_youtube_backends_are_skipped_on_later_items_during_cooldown(tmp_path):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0, retry_attempts=1)
+    first = FakeBackend(
+        "youtube_transcript_api",
+        TranscriptResult.available(source="youtube_transcript_api", text="manual text", language="en", backend_fingerprint="a"),
+    )
+    second = FakeBackend(
+        "yt_dlp",
+        TranscriptResult.available(source="yt_dlp_auto_subtitle", text="subtitle text", language="en", backend_fingerprint="b"),
+    )
+    third = FakeBackend(
+        "openrouter_asr",
+        TranscriptResult.available(source="openrouter_asr", text="asr text", language="en", backend_fingerprint="c"),
+    )
+    service = TranscriptService(options, backends=[first, second, third], cache=TranscriptCache(tmp_path))
+    service._scope_rate_limit_streaks["youtube"] = 1
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+
+    result = service.resolve_item(item)
+
+    assert result.text == "asr text"
+    assert first.calls == 0
+    assert second.calls == 0
+    assert third.calls == 1
+
+
 def test_rate_limited_scope_cooldown_escalates_across_youtube_backends(tmp_path, monkeypatch):
     options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=2, retry_attempts=2)
     first = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("HTTP Error 429: Too Many Requests"))

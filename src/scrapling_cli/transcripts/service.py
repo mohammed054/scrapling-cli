@@ -55,6 +55,7 @@ RATE_LIMIT_SCOPE_BY_BACKEND = {
 }
 VISIBLE_SLEEP_THRESHOLD_SECONDS = 30.0
 HOSTED_ASR_BACKENDS = frozenset({"openai_asr", "openrouter_asr"})
+YOUTUBE_BACKENDS = frozenset({"youtube_transcript_api", "yt_dlp"})
 
 
 def _compact_transcript_error(error: str) -> str:
@@ -123,7 +124,7 @@ class TranscriptService:
         later_backends: list[TranscriptBackend],
     ) -> bool:
         return (
-            backend.name == "yt_dlp"
+            backend.name in YOUTUBE_BACKENDS
             and self._rate_limit_streak("youtube") > 0
             and any(later.name in HOSTED_ASR_BACKENDS for later in later_backends)
         )
@@ -312,19 +313,21 @@ class TranscriptService:
             if cacheable:
                 self.cache.save(item.id, result)
                 logger.info(
-                    "transcript.backend_result backend=%s video_id=%s status=%s source=%s",
+                    "transcript.backend_result backend=%s video_id=%s status=%s source=%s error=%s",
                     backend.name,
                     item.id,
                     result.status,
                     result.source or backend.name,
+                    result.error,
                 )
             else:
                 logger.info(
-                    "transcript.backend_result_uncached backend=%s video_id=%s status=%s source=%s",
+                    "transcript.backend_result_uncached backend=%s video_id=%s status=%s source=%s error=%s",
                     backend.name,
                     item.id,
                     result.status,
                     result.source or backend.name,
+                    result.error,
                 )
             if result.status == "available":
                 self._clear_rate_limit_state(backend)
