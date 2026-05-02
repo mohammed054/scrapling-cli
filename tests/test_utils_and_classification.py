@@ -121,6 +121,59 @@ def test_fetch_page_skips_stealth_fallback_for_blocked_watch_page(monkeypatch):
     assert calls == {"plain": 1, "stealth": 0}
 
 
+def test_fetch_page_reports_watch_page_rate_limit(monkeypatch):
+    import scrapling_cli.fetcher as fetcher_mod
+
+    events = []
+
+    class DummyPage:
+        status = 429
+        text = ""
+
+    class DummyFetcher:
+        @staticmethod
+        def get(url, **kwargs):
+            return DummyPage()
+
+    class DummyStealthyFetcher:
+        @staticmethod
+        def fetch(url, **kwargs):
+            raise AssertionError("stealth fallback should not be used for 429 watch pages")
+
+    monkeypatch.setattr(fetcher_mod, "Fetcher", DummyFetcher)
+    monkeypatch.setattr(fetcher_mod, "StealthyFetcher", DummyStealthyFetcher)
+
+    result = _fetch_page(
+        "https://www.youtube.com/watch?v=blocked",
+        retries=1,
+        allow_stealth_fallback=True,
+        plain_timeout=WATCH_PAGE_PLAIN_TIMEOUT,
+        stealth_timeout=WATCH_PAGE_STEALTH_TIMEOUT,
+        skip_stealth_on_statuses=WATCH_PAGE_SKIP_STEALTH_STATUSES,
+        rate_limit_callback=lambda url, status: events.append((url, status)),
+    )
+
+    assert result is None
+    assert events == [("https://www.youtube.com/watch?v=blocked", 429)]
+
+
+def test_enrich_content_item_skips_fetch_during_watch_page_cooldown(monkeypatch):
+    import scrapling_cli.fetcher as fetcher_mod
+
+    monkeypatch.setattr(fetcher_mod, "_watch_page_enrichment_resume_at", 100.0)
+    monkeypatch.setattr(fetcher_mod, "_watch_page_enrichment_warning_logged", False)
+    monkeypatch.setattr(fetcher_mod.time, "monotonic", lambda: 50.0)
+    monkeypatch.setattr(
+        fetcher_mod,
+        "_fetch_page",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("fetch should be skipped")),
+    )
+
+    item = ContentItem(id="vid", title="Example", url="https://youtube.com/watch?v=vid")
+
+    assert enrich_content_item(item) is item
+
+
 def test_enrich_content_item_uses_fast_watch_page_fetch(monkeypatch):
     import scrapling_cli.fetcher as fetcher_mod
 
@@ -144,6 +197,7 @@ def test_enrich_content_item_uses_fast_watch_page_fetch(monkeypatch):
     assert captured["skip_stealth_on_statuses"] == WATCH_PAGE_SKIP_STEALTH_STATUSES
     assert captured["stealth_disable_resources"] is True
     assert captured["stealth_network_idle"] is False
+    assert callable(captured["rate_limit_callback"])
 
 
 def test_render_markdown_marks_approximate_dates():

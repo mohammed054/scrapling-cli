@@ -5,6 +5,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
+from threading import Lock
 from typing import Callable, Optional
 
 try:
@@ -31,6 +32,11 @@ CANDIDATE_MULTIPLIER = 2.5
 WATCH_PAGE_SKIP_STEALTH_STATUSES = frozenset({403, 429})
 WATCH_PAGE_PLAIN_TIMEOUT = 8
 WATCH_PAGE_STEALTH_TIMEOUT = 10_000
+WATCH_PAGE_RATE_LIMIT_STATUSES = frozenset({403, 429})
+WATCH_PAGE_RATE_LIMIT_COOLDOWN_SECONDS = 5 * 60.0
+_watch_page_cooldown_lock = Lock()
+_watch_page_enrichment_resume_at = 0.0
+_watch_page_enrichment_warning_logged = False
 
 CHANNEL_HEADERS = {
     "User-Agent": (
@@ -163,6 +169,7 @@ def _fetch_page(
     skip_stealth_on_statuses: frozenset[int] = frozenset(),
     stealth_disable_resources: bool = False,
     stealth_network_idle: bool = True,
+    rate_limit_callback: Callable[[str, int], None] | None = None,
 ) -> object | None:
     if Fetcher is None or StealthyFetcher is None:
         raise FetcherError("scrapling is not installed")
@@ -197,6 +204,8 @@ def _fetch_page(
             else:
                 logger.debug("fetcher.http_error url=%s status=%s", url, status or "?")
                 if not use_stealth and status in skip_stealth_on_statuses:
+                    if status in WATCH_PAGE_RATE_LIMIT_STATUSES and rate_limit_callback:
+                        rate_limit_callback(url, status)
                     logger.info("fetcher.skip_stealth_fallback url=%s status=%s", url, status)
                     return None
         except Exception as exc:  # noqa: BLE001
@@ -215,8 +224,46 @@ def _fetch_page(
             skip_stealth_on_statuses=skip_stealth_on_statuses,
             stealth_disable_resources=stealth_disable_resources,
             stealth_network_idle=stealth_network_idle,
+            rate_limit_callback=rate_limit_callback,
         )
     return None
+
+
+def _record_watch_page_rate_limit(url: str, status: int) -> None:
+    global _watch_page_enrichment_resume_at, _watch_page_enrichment_warning_logged
+    resume_at = time.monotonic() + WATCH_PAGE_RATE_LIMIT_COOLDOWN_SECONDS
+    with _watch_page_cooldown_lock:
+        _watch_page_enrichment_resume_at = max(_watch_page_enrichment_resume_at, resume_at)
+        _watch_page_enrichment_warning_logged = False
+    logger.warning(
+        "fetcher.watch_page_cooldown status=%s cooldown_seconds=%.0f url=%s",
+        status,
+        WATCH_PAGE_RATE_LIMIT_COOLDOWN_SECONDS,
+        url,
+    )
+
+
+def _watch_page_cooldown_remaining() -> float:
+    with _watch_page_cooldown_lock:
+        resume_at = _watch_page_enrichment_resume_at
+    return max(0.0, resume_at - time.monotonic())
+
+
+def _watch_page_enrichment_blocked(item: ContentItem) -> bool:
+    global _watch_page_enrichment_warning_logged
+    remaining = _watch_page_cooldown_remaining()
+    if remaining <= 0:
+        return False
+    with _watch_page_cooldown_lock:
+        if _watch_page_enrichment_warning_logged:
+            return True
+        _watch_page_enrichment_warning_logged = True
+    logger.warning(
+        "fetcher.watch_page_enrichment_paused cooldown_remaining=%.0f first_skipped_url=%s",
+        remaining,
+        item.url,
+    )
+    return True
 
 
 def _safe_text(obj: object, *keys: object, default: str = "") -> str:
@@ -542,6 +589,8 @@ def _parse_subscribers(yt_data: dict) -> int:
 def enrich_content_item(item: ContentItem, *, retries: int = 1) -> ContentItem:
     if not item.url:
         return item
+    if _watch_page_enrichment_blocked(item):
+        return item
     for attempt in range(1, retries + 1):
         page = _fetch_page(
             item.url,
@@ -552,6 +601,7 @@ def enrich_content_item(item: ContentItem, *, retries: int = 1) -> ContentItem:
             skip_stealth_on_statuses=WATCH_PAGE_SKIP_STEALTH_STATUSES,
             stealth_disable_resources=True,
             stealth_network_idle=False,
+            rate_limit_callback=_record_watch_page_rate_limit,
         )
         if not page:
             if attempt < retries:
