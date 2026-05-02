@@ -780,6 +780,23 @@ def test_backend_configuration_error_disables_backend_for_later_items(tmp_path, 
     assert "reason=disabled" in caplog.text
 
 
+def test_configuration_failure_is_not_retryable_even_with_youtube_rate_limit_text(tmp_path):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0)
+    service = TranscriptService(options, backends=[], cache=TranscriptCache(tmp_path))
+    result = TranscriptResult.unavailable(
+        source="none",
+        language="en",
+        error=(
+            "youtube_transcript_api: skipped_after_youtube_rate_limit_hosted_asr_available; "
+            "openrouter_asr: Could not read YouTube cookies from chrome. "
+            "Close that browser completely and retry, switch YTDLP_COOKIES_FROM_BROWSER "
+            "to another signed-in browser, or export cookies.txt and set YTDLP_COOKIES to its path."
+        ),
+    )
+
+    assert service.is_retryable_failure(result) is False
+
+
 def test_asr_waits_for_youtube_media_cooldown(tmp_path, monkeypatch, caplog):
     options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0, retry_attempts=1)
     backend = FakeBackend(

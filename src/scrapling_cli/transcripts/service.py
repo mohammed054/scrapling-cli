@@ -37,6 +37,14 @@ TRANSIENT_FAILURE_MARKERS = (
     "service unavailable",
 )
 
+CONFIGURATION_FAILURE_MARKERS = (
+    "could not read youtube cookies",
+    "could not copy chrome cookie database",
+    "invalid cookies-from-browser",
+    "export cookies.txt",
+    "set ytdlp_cookies",
+)
+
 RATE_LIMIT_FAILURE_MARKERS = (
     "429",
     "too many requests",
@@ -110,6 +118,8 @@ class TranscriptService:
         if result.status != "unavailable" or not result.error:
             return False
         error = result.error.lower()
+        if any(marker in error for marker in CONFIGURATION_FAILURE_MARKERS):
+            return False
         return any(marker in error for marker in TRANSIENT_FAILURE_MARKERS)
 
     def is_retryable_failure(self, result: TranscriptResult) -> bool:
