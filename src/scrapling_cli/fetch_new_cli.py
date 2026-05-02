@@ -74,6 +74,15 @@ def main(argv: list[str] | None = None) -> int:
             ("State file", config.state_file),
         ],
     )
+    if (
+        args.transcripts
+        and describe_hosted_asr(config.transcript_options) != "off"
+        and describe_cookie_source(config.transcript_options) == "off"
+    ):
+        console.print(
+            "[yellow]Cookies are off. If YouTube asks yt-dlp to sign in, add "
+            "--cookies-from-browser chrome or set YTDLP_COOKIES_FROM_BROWSER=chrome in .env.[/yellow]"
+        )
     try:
         result = run_incremental_fetch(config)
     except TranscriptResolutionError as exc:

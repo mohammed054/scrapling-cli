@@ -98,9 +98,11 @@ Create a new file named `.env` in the repo root and paste these secrets into it:
 OPENROUTER_API_KEY=your-rotated-openrouter-key
 # Optional: direct OpenAI ASR fallback
 OPENAI_API_KEY=
+# Browser where YouTube works while signed in
+YTDLP_COOKIES_FROM_BROWSER=chrome
 ```
 
-Replace `your-rotated-openrouter-key` with the new key from OpenRouter, then save the file. You can also copy `.env.example` to `.env` and edit it.
+Replace `your-rotated-openrouter-key` with the new key from OpenRouter, then save the file. Set `YTDLP_COOKIES_FROM_BROWSER` to the browser where YouTube works while signed in, such as `chrome`, `edge`, `brave`, or `firefox`. You can also copy `.env.example` to `.env` and edit it.
 
 When the CLI starts, existing shell environment variables win, so a value already set in PowerShell will not be overwritten by `.env`.
 
@@ -126,7 +128,7 @@ The startup panel should show `Hosted ASR  openrouter`. If it shows `off`, the `
 
 OpenRouter STT defaults to `openai/whisper-large-v3`; override with `--openrouter-asr-model` if your OpenRouter account has access to a different transcription model.
 
-Hosted ASR still needs the video audio first. If `yt-dlp` says `Sign in to confirm you're not a bot`, pass browser cookies from a browser where YouTube already works:
+Hosted ASR still needs the video audio first. If `yt-dlp` says `Sign in to confirm you're not a bot`, use `.env` with `YTDLP_COOKIES_FROM_BROWSER=chrome` or pass browser cookies from a browser where YouTube already works:
 
 ```powershell
 --cookies-from-browser chrome

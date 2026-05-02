@@ -128,6 +128,35 @@ def test_build_transcript_options_accepts_cookie_sources(tmp_path):
     assert options.cookies_file == cookie_file
 
 
+def test_build_transcript_options_reads_cookie_sources_from_env(tmp_path, monkeypatch):
+    parser = argparse.ArgumentParser()
+    add_transcript_arguments(parser)
+    cookie_file = tmp_path / "cookies.txt"
+    monkeypatch.setenv("YTDLP_COOKIES_FROM_BROWSER", "edge")
+    monkeypatch.setenv("YTDLP_COOKIES", str(cookie_file))
+
+    args = parser.parse_args([])
+    options = build_transcript_options(args)
+
+    assert options.cookies_from_browser == "edge"
+    assert options.cookies_file == cookie_file
+
+
+def test_cli_cookie_arguments_override_env(tmp_path, monkeypatch):
+    parser = argparse.ArgumentParser()
+    add_transcript_arguments(parser)
+    env_cookie_file = tmp_path / "env-cookies.txt"
+    cli_cookie_file = tmp_path / "cli-cookies.txt"
+    monkeypatch.setenv("YTDLP_COOKIES_FROM_BROWSER", "edge")
+    monkeypatch.setenv("YTDLP_COOKIES", str(env_cookie_file))
+
+    args = parser.parse_args(["--cookies-from-browser", "chrome", "--cookies", str(cli_cookie_file)])
+    options = build_transcript_options(args)
+
+    assert options.cookies_from_browser == "chrome"
+    assert options.cookies_file == cli_cookie_file
+
+
 def test_load_env_file_reads_local_keys_without_overriding(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
     env_file.write_text(

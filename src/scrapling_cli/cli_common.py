@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from argparse import ArgumentParser, Namespace
 from datetime import datetime
 from pathlib import Path
@@ -50,6 +51,14 @@ def describe_cookie_source(options: TranscriptOptions) -> str:
     if options.cookies_file:
         return "file"
     return "off"
+
+
+def _env_first(*names: str) -> str:
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
 
 
 def add_transcript_arguments(parser: ArgumentParser) -> None:
@@ -136,6 +145,11 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
 
 def build_transcript_options(args: Namespace) -> TranscriptOptions:
     load_env_file()
+    cookies_from_browser = (
+        (args.cookies_from_browser or "").strip()
+        or _env_first("YTDLP_COOKIES_FROM_BROWSER", "SCRAPLING_COOKIES_FROM_BROWSER")
+    )
+    cookies_file = (args.cookies or "").strip() or _env_first("YTDLP_COOKIES", "SCRAPLING_COOKIES")
     return TranscriptOptions(
         enabled=bool(getattr(args, "transcripts", False)),
         language=args.transcript_language,
@@ -149,6 +163,6 @@ def build_transcript_options(args: Namespace) -> TranscriptOptions:
         allow_hosted_asr=args.allow_hosted_asr,
         asr_model=args.asr_model,
         openrouter_asr_model=args.openrouter_asr_model,
-        cookies_from_browser=(args.cookies_from_browser or "").strip(),
-        cookies_file=Path(args.cookies) if getattr(args, "cookies", "") else None,
+        cookies_from_browser=cookies_from_browser,
+        cookies_file=Path(cookies_file) if cookies_file else None,
     )

@@ -102,6 +102,15 @@ def main(argv: list[str] | None = None) -> int:
             ("Output", config.output_dir),
         ],
     )
+    if (
+        args.transcripts
+        and describe_hosted_asr(config.transcript_options) != "off"
+        and describe_cookie_source(config.transcript_options) == "off"
+    ):
+        console.print(
+            "[yellow]Cookies are off. If YouTube asks yt-dlp to sign in, add "
+            "--cookies-from-browser chrome or set YTDLP_COOKIES_FROM_BROWSER=chrome in .env.[/yellow]"
+        )
 
     try:
         result = run_channel_analysis(config)
