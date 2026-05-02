@@ -50,10 +50,11 @@ RATE_LIMIT_FAILURE_MARKERS = (
 RATE_LIMIT_SCOPE_BY_BACKEND = {
     "youtube_transcript_api": "youtube",
     "yt_dlp": "youtube",
-    "openai_asr": "youtube",
-    "openrouter_asr": "youtube",
+    "openai_asr": "hosted_asr",
+    "openrouter_asr": "hosted_asr",
 }
 VISIBLE_SLEEP_THRESHOLD_SECONDS = 30.0
+HOSTED_ASR_BACKENDS = frozenset({"openai_asr", "openrouter_asr"})
 
 
 def _compact_transcript_error(error: str) -> str:
@@ -111,6 +112,21 @@ class TranscriptService:
         scope = self._rate_limit_scope(backend)
         with self._request_lock:
             self._scope_rate_limit_streaks.pop(scope, None)
+
+    def _rate_limit_streak(self, scope: str) -> int:
+        with self._request_lock:
+            return self._scope_rate_limit_streaks.get(scope, 0)
+
+    def _should_skip_after_youtube_rate_limit(
+        self,
+        backend: TranscriptBackend,
+        later_backends: list[TranscriptBackend],
+    ) -> bool:
+        return (
+            backend.name == "yt_dlp"
+            and self._rate_limit_streak("youtube") > 0
+            and any(later.name in HOSTED_ASR_BACKENDS for later in later_backends)
+        )
 
     def seconds_until_next_request(self) -> float:
         with self._request_lock:
@@ -170,7 +186,6 @@ class TranscriptService:
                 base_cooldown_seconds * (2 ** (streak - 1)),
             )
             resume_at = now + cooldown_seconds
-            self._next_request_at = max(self._next_request_at, resume_at)
             self._scope_next_request_at[scope] = max(self._scope_next_request_at.get(scope, 0.0), resume_at)
         logger.warning(
             "transcript.cooldown backend=%s scope=%s video_id=%s attempt=%s streak=%s cooldown_seconds=%.2f error=%s",
@@ -257,7 +272,7 @@ class TranscriptService:
             return item.transcript
 
         errors: list[str] = []
-        for backend in self.backends:
+        for index, backend in enumerate(self.backends):
             fingerprint = backend.fingerprint(self.options)
             cached = self.cache.load(item.id, fingerprint)
             if cached:
@@ -280,6 +295,17 @@ class TranscriptService:
                         return cached
                     errors.append(f"{backend.name}: {cached.error or cached.status}")
                     continue
+
+            if self._should_skip_after_youtube_rate_limit(backend, self.backends[index + 1 :]):
+                error = "skipped_after_youtube_rate_limit_hosted_asr_available"
+                logger.info(
+                    "transcript.backend_skip backend=%s video_id=%s reason=%s",
+                    backend.name,
+                    item.id,
+                    error,
+                )
+                errors.append(f"{backend.name}: {error}")
+                continue
 
             result, cacheable = self._with_retry(backend, item)
             result.backend_fingerprint = fingerprint

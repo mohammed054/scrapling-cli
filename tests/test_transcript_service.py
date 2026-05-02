@@ -571,13 +571,40 @@ def test_rate_limited_failure_extends_global_cooldown(tmp_path, monkeypatch, cap
     assert "sleep_seconds=300.00" in caplog.text
 
 
-def test_rate_limited_scope_cooldown_escalates_across_fallback_backends(tmp_path, monkeypatch):
+def test_youtube_subtitle_backend_is_skipped_after_rate_limit_when_hosted_asr_exists(tmp_path, monkeypatch):
+    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=0, retry_attempts=2)
+    first = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("HTTP Error 429: Too Many Requests"))
+    second = FakeBackend(
+        "yt_dlp",
+        TranscriptResult.available(source="yt_dlp_auto_subtitle", text="subtitle text", language="en", backend_fingerprint="b"),
+    )
+    third = FakeBackend(
+        "openrouter_asr",
+        TranscriptResult.available(source="openrouter_asr", text="asr text", language="en", backend_fingerprint="c"),
+    )
+    service = TranscriptService(options, backends=[first, second, third], cache=TranscriptCache(tmp_path))
+    item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
+    sleeps = []
+
+    import scrapling_cli.transcripts.service as service_mod
+
+    monkeypatch.setattr(service_mod.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    result = service.resolve_item(item)
+
+    assert result.text == "asr text"
+    assert second.calls == 0
+    assert third.calls == 1
+    assert sleeps == []
+
+
+def test_rate_limited_scope_cooldown_escalates_across_youtube_backends(tmp_path, monkeypatch):
     options = TranscriptOptions(enabled=True, cache_dir=tmp_path, request_delay_seconds=2, retry_attempts=2)
     first = FakeBackend("youtube_transcript_api", error=RetryableTranscriptError("HTTP Error 429: Too Many Requests"))
     second = FakeBackend("yt_dlp", error=RetryableTranscriptError("HTTP Error 429: Too Many Requests"))
     third = FakeBackend(
-        "openai_asr",
-        TranscriptResult.available(source="openai_asr", text="asr text", language="en", backend_fingerprint="c"),
+        "youtube_transcript_api",
+        TranscriptResult.available(source="youtube_transcript_api", text="manual text", language="en", backend_fingerprint="c"),
     )
     service = TranscriptService(options, backends=[first, second, third], cache=TranscriptCache(tmp_path))
     item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
@@ -597,6 +624,7 @@ def test_rate_limited_scope_cooldown_escalates_across_fallback_backends(tmp_path
     result = service.resolve_item(item)
 
     assert result.status == "available"
+    assert result.text == "manual text"
     assert sleeps == [300.0, 600.0]
 
 

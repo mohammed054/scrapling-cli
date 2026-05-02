@@ -33,6 +33,17 @@ def parse_date_arg(value: str):
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
+def describe_hosted_asr(options: TranscriptOptions) -> str:
+    if options.allow_hosted_asr is False:
+        return "disabled"
+    providers = []
+    if options.openai_api_key:
+        providers.append("openai")
+    if options.openrouter_api_key:
+        providers.append("openrouter")
+    return ", ".join(providers) if providers else "off"
+
+
 def add_transcript_arguments(parser: ArgumentParser) -> None:
     group = parser.add_argument_group("Transcripts")
     group.add_argument("--transcripts", action="store_true", help="Resolve transcripts for selected items")

@@ -119,6 +119,8 @@ python scrapling_cli.py `
   --output-dir output
 ```
 
+The startup panel should show `Hosted ASR  openrouter`. If it shows `off`, the `.env` file is missing, still blank, or the shell environment is overriding it.
+
 OpenRouter STT defaults to `openai/whisper-large-v3`; override with `--openrouter-asr-model` if your OpenRouter account has access to a different transcription model.
 
 When `--transcripts` is enabled, the CLI now treats missing transcripts as a blocking condition by default: retryable failures keep getting retried in rounds, and the run exits non-zero if any item still has a permanent transcript failure. Use `--allow-missing-transcripts` to restore the looser behavior.
