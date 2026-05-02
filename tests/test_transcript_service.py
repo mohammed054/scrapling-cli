@@ -11,6 +11,7 @@ import pytest
 from scrapling_cli.models import ContentItem, TranscriptOptions, TranscriptResult
 from scrapling_cli.transcripts.backends import (
     OpenAIAsrBackend,
+    OpenRouterAsrBackend,
     RetryableTranscriptError,
     TranscriptBackendError,
     YouTubeTranscriptApiBackend,
@@ -141,7 +142,13 @@ def test_service_uses_cache_for_second_call(tmp_path):
 
 
 def test_service_reports_no_key_when_hosted_asr_unavailable(tmp_path):
-    options = TranscriptOptions(enabled=True, cache_dir=tmp_path, allow_hosted_asr=None, openai_api_key="")
+    options = TranscriptOptions(
+        enabled=True,
+        cache_dir=tmp_path,
+        allow_hosted_asr=None,
+        openai_api_key="",
+        openrouter_api_key="",
+    )
     backend = FakeBackend(
         "youtube_transcript_api",
         TranscriptResult.unavailable(source="youtube_transcript_api", error="disabled", language="en", backend_fingerprint="a"),
@@ -150,7 +157,7 @@ def test_service_reports_no_key_when_hosted_asr_unavailable(tmp_path):
     item = ContentItem(id="vid", title="Title", url="https://youtube.com/watch?v=vid")
     result = service.resolve_item(item)
     assert result.status == "unavailable"
-    assert "missing_OPENAI_API_KEY" in result.error
+    assert "missing_OPENAI_API_KEY_or_OPENROUTER_API_KEY" in result.error
 
 
 class _FakeResponse(io.BytesIO):
@@ -274,6 +281,53 @@ def test_openai_asr_backend_merges_chunks(monkeypatch, tmp_path):
     assert result.status == "available"
     assert "chunk:chunk_000.mp3" in result.text
     assert "chunk:chunk_001.mp3" in result.text
+
+
+def test_openrouter_asr_backend_posts_base64_audio(monkeypatch, tmp_path):
+    backend = OpenRouterAsrBackend()
+    chunk_path = tmp_path / "chunk_000.mp3"
+    chunk_path.write_bytes(b"audio")
+    captured = {}
+
+    def _capture_urlopen(request, timeout=120):
+        captured["url"] = request.full_url
+        captured["headers"] = dict(request.header_items())
+        captured["payload"] = json.loads(request.data.decode("utf-8"))
+        return _FakeResponse(b'{"text":"hello from openrouter"}')
+
+    import json
+
+    monkeypatch.setattr(urllib.request, "urlopen", _capture_urlopen)
+
+    text = backend._transcribe_chunks(
+        [chunk_path],
+        TranscriptOptions(
+            enabled=True,
+            openrouter_api_key="test-openrouter-key",
+            openrouter_asr_model="openai/whisper-large-v3",
+        ),
+        None,
+    )
+
+    assert text == "hello from openrouter"
+    assert captured["url"] == "https://openrouter.ai/api/v1/audio/transcriptions"
+    assert captured["headers"]["Authorization"] == "Bearer test-openrouter-key"
+    assert captured["payload"]["model"] == "openai/whisper-large-v3"
+    assert captured["payload"]["input_audio"]["data"] == "YXVkaW8="
+    assert captured["payload"]["input_audio"]["format"] == "mp3"
+
+
+def test_default_service_uses_openrouter_asr_when_key_is_available(tmp_path):
+    options = TranscriptOptions(
+        enabled=True,
+        cache_dir=tmp_path,
+        openai_api_key="",
+        openrouter_api_key="test-openrouter-key",
+    )
+
+    service = TranscriptService(options, cache=TranscriptCache(tmp_path))
+
+    assert [backend.name for backend in service.backends][-1] == "openrouter_asr"
 
 
 @pytest.mark.live

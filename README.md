@@ -60,6 +60,7 @@ Useful transcript controls:
 --allow-hosted-asr
 --no-hosted-asr
 --asr-model gpt-4o-mini-transcribe
+--openrouter-asr-model openai/whisper-large-v3
 ```
 
 The interactive CLI prints a large `SCRAPPING` startup banner plus run/result panels. Add `--no-banner` for scheduled jobs or plain log output.
@@ -85,7 +86,19 @@ python scrapling_cli.py \
   --output-dir output
 ```
 
-If transcript coverage matters more than speed, set `OPENAI_API_KEY` and leave hosted ASR enabled so the pipeline still has a fallback when YouTube subtitle paths are blocked.
+If transcript coverage matters more than speed, set `OPENAI_API_KEY` or `OPENROUTER_API_KEY` and leave hosted ASR enabled so the pipeline still has a fallback when YouTube subtitle paths are blocked. On Windows PowerShell:
+
+```powershell
+$env:OPENROUTER_API_KEY = "your-rotated-openrouter-key"
+```
+
+For a persistent user-level key:
+
+```powershell
+[Environment]::SetEnvironmentVariable("OPENROUTER_API_KEY", "your-rotated-openrouter-key", "User")
+```
+
+OpenRouter STT defaults to `openai/whisper-large-v3`; override with `--openrouter-asr-model` if your OpenRouter account has access to a different transcription model.
 
 When `--transcripts` is enabled, the CLI now treats missing transcripts as a blocking condition by default: retryable failures keep getting retried in rounds, and the run exits non-zero if any item still has a permanent transcript failure. Use `--allow-missing-transcripts` to restore the looser behavior.
 

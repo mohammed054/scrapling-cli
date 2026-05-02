@@ -136,12 +136,15 @@ class TranscriptOptions:
     require_success: bool = True
     allow_hosted_asr: Optional[bool] = None
     asr_model: str = "gpt-4o-mini-transcribe"
+    openrouter_asr_model: str = "openai/whisper-large-v3"
     openai_api_key: str = field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
+    openrouter_api_key: str = field(default_factory=lambda: os.getenv("OPENROUTER_API_KEY", ""))
 
     def hosted_asr_enabled(self) -> bool:
+        has_hosted_key = bool(self.openai_api_key or self.openrouter_api_key)
         if self.allow_hosted_asr is None:
-            return bool(self.openai_api_key)
-        return bool(self.allow_hosted_asr and self.openai_api_key)
+            return has_hosted_key
+        return bool(self.allow_hosted_asr and has_hosted_key)
 
     def normalized_language_preferences(self) -> list[str]:
         base = (self.language or "en").strip()

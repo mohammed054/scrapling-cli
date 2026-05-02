@@ -8,6 +8,7 @@ from threading import Lock
 from ..models import ContentItem, TranscriptOptions, TranscriptResult
 from .backends import (
     OpenAIAsrBackend,
+    OpenRouterAsrBackend,
     RetryableTranscriptError,
     TranscriptBackend,
     TranscriptBackendError,
@@ -50,6 +51,7 @@ RATE_LIMIT_SCOPE_BY_BACKEND = {
     "youtube_transcript_api": "youtube",
     "yt_dlp": "youtube",
     "openai_asr": "youtube",
+    "openrouter_asr": "youtube",
 }
 VISIBLE_SLEEP_THRESHOLD_SECONDS = 30.0
 
@@ -87,8 +89,10 @@ class TranscriptService:
             YouTubeTranscriptApiBackend(),
             YtDlpSubtitleBackend(),
         ]
-        if self.options.hosted_asr_enabled():
+        if self.options.hosted_asr_enabled() and self.options.openai_api_key:
             backends.append(OpenAIAsrBackend())
+        if self.options.hosted_asr_enabled() and self.options.openrouter_api_key:
+            backends.append(OpenRouterAsrBackend())
         return backends
 
     def _is_transient_failure(self, result: TranscriptResult) -> bool:
@@ -302,11 +306,11 @@ class TranscriptService:
                 return result
             errors.append(f"{backend.name}: {result.error or result.status}")
 
-        if not any(backend.name == "openai_asr" for backend in self.backends):
+        if not any(backend.name in {"openai_asr", "openrouter_asr"} for backend in self.backends):
             if self.options.allow_hosted_asr is False:
-                errors.append("openai_asr: disabled_by_flag")
-            elif not self.options.openai_api_key:
-                errors.append("openai_asr: missing_OPENAI_API_KEY")
+                errors.append("hosted_asr: disabled_by_flag")
+            elif not self.options.openai_api_key and not self.options.openrouter_api_key:
+                errors.append("hosted_asr: missing_OPENAI_API_KEY_or_OPENROUTER_API_KEY")
 
         item.transcript = TranscriptResult.unavailable(
             source="none",

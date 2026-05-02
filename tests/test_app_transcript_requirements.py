@@ -86,6 +86,7 @@ def test_build_transcript_options_requires_success_by_default():
     assert options.require_success is True
     assert options.rate_limit_cooldown_seconds == 300.0
     assert options.rate_limit_cooldown_cap_seconds == 3600.0
+    assert options.openrouter_asr_model == "openai/whisper-large-v3"
 
 
 def test_build_transcript_options_can_allow_missing_transcripts():
@@ -96,3 +97,13 @@ def test_build_transcript_options_can_allow_missing_transcripts():
     options = build_transcript_options(args)
 
     assert options.require_success is False
+
+
+def test_build_transcript_options_accepts_openrouter_asr_model():
+    parser = argparse.ArgumentParser()
+    add_transcript_arguments(parser)
+
+    args = parser.parse_args(["--openrouter-asr-model", "openai/whisper-1"])
+    options = build_transcript_options(args)
+
+    assert options.openrouter_asr_model == "openai/whisper-1"

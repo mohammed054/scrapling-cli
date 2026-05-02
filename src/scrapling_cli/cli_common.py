@@ -60,19 +60,24 @@ def add_transcript_arguments(parser: ArgumentParser) -> None:
         "--allow-hosted-asr",
         dest="allow_hosted_asr",
         action="store_true",
-        help="Allow OpenAI ASR fallback when OPENAI_API_KEY is set",
+        help="Allow hosted ASR fallback when OPENAI_API_KEY or OPENROUTER_API_KEY is set",
     )
     hosted.add_argument(
         "--no-hosted-asr",
         dest="allow_hosted_asr",
         action="store_false",
-        help="Disable OpenAI ASR fallback even if OPENAI_API_KEY is set",
+        help="Disable hosted ASR fallback even if an ASR API key is set",
     )
     parser.set_defaults(allow_hosted_asr=None, require_transcript_success=True)
     group.add_argument(
         "--asr-model",
         default="gpt-4o-mini-transcribe",
         help="OpenAI transcription model for hosted ASR fallback",
+    )
+    group.add_argument(
+        "--openrouter-asr-model",
+        default="openai/whisper-large-v3",
+        help="OpenRouter STT model slug for hosted ASR fallback",
     )
 
 
@@ -89,4 +94,5 @@ def build_transcript_options(args: Namespace) -> TranscriptOptions:
         require_success=bool(args.require_transcript_success),
         allow_hosted_asr=args.allow_hosted_asr,
         asr_model=args.asr_model,
+        openrouter_asr_model=args.openrouter_asr_model,
     )

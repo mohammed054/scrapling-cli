@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import subprocess
 import tempfile
+import urllib.error
 import urllib.request
 from pathlib import Path
 from threading import local
@@ -453,3 +456,86 @@ class OpenAIAsrBackend:
             language=options.language,
             backend_fingerprint=self.fingerprint(options),
         )
+
+
+class OpenRouterAsrBackend(OpenAIAsrBackend):
+    name = "openrouter_asr"
+    endpoint = "https://openrouter.ai/api/v1/audio/transcriptions"
+
+    def fingerprint(self, options: TranscriptOptions) -> str:
+        return f"{self.name}:{options.openrouter_asr_model}:{options.language}:mono16kmp3-v1"
+
+    def _require_dependencies(self):
+        try:
+            import imageio_ffmpeg
+            from yt_dlp import YoutubeDL
+        except ImportError as exc:  # pragma: no cover - exercised in runtime environments without deps
+            raise TranscriptBackendError("OpenRouter ASR dependencies not installed") from exc
+        return imageio_ffmpeg, None, YoutubeDL
+
+    def _transcribe_chunks(self, chunk_paths: list[Path], options: TranscriptOptions, _OpenAI) -> str:
+        if not options.openrouter_api_key:
+            raise TranscriptBackendError("missing OPENROUTER_API_KEY")
+        transcripts: list[str] = []
+        for chunk_path in chunk_paths:
+            payload = {
+                "model": options.openrouter_asr_model,
+                "input_audio": {
+                    "data": base64.b64encode(chunk_path.read_bytes()).decode("ascii"),
+                    "format": chunk_path.suffix.lstrip(".") or "mp3",
+                },
+                "language": options.language,
+            }
+            request = urllib.request.Request(
+                self.endpoint,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {options.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://github.com/mohammed054/scrapling-cli",
+                    "X-Title": "scrapling-cli",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    body = response.read().decode("utf-8", errors="replace")
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                message = _openrouter_error_message(exc.code, body)
+                if exc.code in {408, 409, 429, 500, 502, 503, 504}:
+                    raise RetryableTranscriptError(message) from exc
+                raise TranscriptBackendError(message) from exc
+            except Exception as exc:  # noqa: BLE001
+                raise RetryableTranscriptError(str(exc)) from exc
+
+            try:
+                data = json.loads(body)
+            except json.JSONDecodeError as exc:
+                raise RetryableTranscriptError("OpenRouter ASR returned invalid JSON") from exc
+            transcripts.append(clean_plain_text(str(data.get("text") or "")))
+        return merge_transcript_chunks(transcripts)
+
+    def fetch(self, item: ContentItem, options: TranscriptOptions) -> TranscriptResult:
+        if not options.openrouter_api_key:
+            return TranscriptResult.unavailable(
+                source=self.name,
+                language=options.language,
+                error="missing OPENROUTER_API_KEY",
+                backend_fingerprint=self.fingerprint(options),
+            )
+        return super().fetch(item, options)
+
+
+def _openrouter_error_message(status: int, body: str) -> str:
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        payload = {}
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if isinstance(error, dict):
+        message = error.get("message") or error.get("code") or body
+    else:
+        message = error or body
+    message = str(message).strip() or "request failed"
+    return f"OpenRouter ASR HTTP {status}: {message[:500]}"
