@@ -322,6 +322,124 @@ def _extract_thumbnail(renderer: dict) -> str:
     return best.get("url", "")
 
 
+def _extract_thumbnail_view_model(view_model: dict) -> str:
+    sources = view_model.get("image", {}).get("sources") or []
+    if not sources:
+        return ""
+    best = max(sources, key=lambda source: (source.get("width") or 0) * (source.get("height") or 0))
+    return best.get("url", "")
+
+
+def _extract_content_text(value: object) -> str:
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return repair_text(value.strip())
+    if isinstance(value, dict):
+        if "content" in value:
+            return repair_text(str(value.get("content", "")).strip())
+        if "simpleText" in value:
+            return repair_text(str(value.get("simpleText", "")).strip())
+        if "runs" in value:
+            return _extract_text_runs(value.get("runs", []))
+    return ""
+
+
+def _metadata_parts(lockup: dict) -> list[str]:
+    metadata_rows = (
+        lockup.get("metadata", {})
+        .get("lockupMetadataViewModel", {})
+        .get("metadata", {})
+        .get("contentMetadataViewModel", {})
+        .get("metadataRows", [])
+    )
+    parts: list[str] = []
+    for row in metadata_rows:
+        for part in row.get("metadataParts", []):
+            text = _extract_content_text(part.get("text")) or repair_text(str(part.get("accessibilityLabel", "")).strip())
+            if text:
+                parts.append(text)
+    return parts
+
+
+def _lockup_duration_text(lockup: dict) -> str:
+    overlays = lockup.get("contentImage", {}).get("thumbnailViewModel", {}).get("overlays", [])
+    for overlay in overlays:
+        badges = overlay.get("thumbnailBottomOverlayViewModel", {}).get("badges", [])
+        for badge in badges:
+            badge_model = badge.get("thumbnailBadgeViewModel", {})
+            text = badge_model.get("text", "")
+            if text and ":" in text:
+                return repair_text(str(text).strip())
+            label = _safe_text(badge_model, "rendererContext", "accessibilityContext", "label")
+            match = re.search(r"(?:(\d+)\s+hours?,\s*)?(?:(\d+)\s+minutes?,\s*)?(\d+)\s+seconds?", label)
+            if match:
+                hours = int(match.group(1) or 0)
+                minutes = int(match.group(2) or 0)
+                seconds = int(match.group(3) or 0)
+                if hours:
+                    return f"{hours}:{minutes:02d}:{seconds:02d}"
+                return f"{minutes}:{seconds:02d}"
+    return ""
+
+
+def _lockup_to_item(lockup: dict, *, source_tab: str) -> ContentItem | None:
+    video_id = lockup.get("contentId") or (
+        lockup.get("rendererContext", {})
+        .get("commandContext", {})
+        .get("onTap", {})
+        .get("innertubeCommand", {})
+        .get("watchEndpoint", {})
+        .get("videoId")
+    )
+    if not video_id:
+        return None
+
+    metadata = lockup.get("metadata", {}).get("lockupMetadataViewModel", {})
+    title = _extract_content_text(metadata.get("title")).strip()
+    if not title or title in {"[Deleted video]", "[Private video]"}:
+        return None
+
+    command_metadata = (
+        lockup.get("rendererContext", {})
+        .get("commandContext", {})
+        .get("onTap", {})
+        .get("innertubeCommand", {})
+        .get("commandMetadata", {})
+        .get("webCommandMetadata", {})
+    )
+    url = command_metadata.get("url", "")
+    if url and not url.startswith("http"):
+        url = f"https://www.youtube.com{url}"
+    if not url:
+        url = f"https://www.youtube.com/watch?v={video_id}"
+
+    metadata_values = _metadata_parts(lockup)
+    view_text = next((value for value in metadata_values if "view" in value.lower()), "")
+    published_relative = next(
+        (
+            value
+            for value in metadata_values
+            if any(token in value.lower() for token in ("ago", "streamed", "premiered"))
+        ),
+        "",
+    )
+    thumbnail = _extract_thumbnail_view_model(lockup.get("contentImage", {}).get("thumbnailViewModel", {}))
+    duration_text = _lockup_duration_text(lockup)
+
+    return ContentItem(
+        id=video_id,
+        title=title,
+        url=url,
+        type="video",
+        views=_parse_view_count(view_text),
+        duration=_parse_duration_text(duration_text),
+        thumbnail=thumbnail,
+        published_relative=published_relative,
+        source_tab=source_tab,
+    )
+
+
 def _renderer_to_item(renderer: dict, *, is_short: bool, source_tab: str) -> ContentItem | None:
     video_id = renderer.get("videoId") or renderer.get("reelWatchEndpoint", {}).get("videoId")
     if not video_id:
@@ -387,6 +505,12 @@ def _walk_contents(contents: list, *, source_tab: str) -> tuple[list[ContentItem
         reel_renderer = inner.get("reelItemRenderer")
         if reel_renderer:
             item = _renderer_to_item(reel_renderer, is_short=True, source_tab=source_tab)
+            if item:
+                items.append(item)
+            continue
+        lockup = inner.get("lockupViewModel")
+        if lockup:
+            item = _lockup_to_item(lockup, source_tab=source_tab)
             if item:
                 items.append(item)
             continue

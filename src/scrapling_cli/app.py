@@ -208,10 +208,14 @@ def run_incremental_fetch(config: FetchNewRunConfig) -> FetchNewRunResult:
             channel,
             candidate_percent=None,
             enrich_pages=False,
-            include_videos=True,
-            include_shorts=True,
+            include_videos=not config.no_videos,
+            include_shorts=not config.no_shorts,
         )
         videos, shorts = _filter_new_items(fetched, from_date)
+        if config.no_videos:
+            videos = []
+        if config.no_shorts:
+            shorts = []
         new_videos = stable_sort(videos, score_first=False)
         new_shorts = stable_sort(shorts, score_first=False)
         new_items = new_videos + new_shorts

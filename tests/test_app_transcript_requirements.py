@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import argparse
 import os
+from datetime import date
 
 import pytest
 
-from scrapling_cli.app import TranscriptResolutionError, _resolve_transcripts_or_raise
+from scrapling_cli.app import TranscriptResolutionError, _resolve_transcripts_or_raise, run_incremental_fetch
 from scrapling_cli.cli_common import (
     add_transcript_arguments,
     build_transcript_options,
@@ -13,7 +14,8 @@ from scrapling_cli.cli_common import (
     describe_hosted_asr,
     load_env_file,
 )
-from scrapling_cli.models import ContentItem, TranscriptOptions, TranscriptResult
+from scrapling_cli.fetcher import ChannelFetchResult
+from scrapling_cli.models import ContentItem, FetchNewRunConfig, TranscriptOptions, TranscriptResult
 
 
 class SequencedTranscriptService:
@@ -126,6 +128,57 @@ def test_build_transcript_options_accepts_cookie_sources(tmp_path):
 
     assert options.cookies_from_browser == "chrome"
     assert options.cookies_file == cookie_file
+
+
+def test_incremental_fetch_can_skip_shorts(monkeypatch, tmp_path):
+    import scrapling_cli.app as app_mod
+
+    seen = {}
+
+    def fake_fetch_channel_entries(channel, **kwargs):
+        seen.update(kwargs)
+        return ChannelFetchResult(
+            items=[
+                ContentItem(
+                    id="video",
+                    title="Video",
+                    url="https://youtube.com/watch?v=video",
+                    date=date(2026, 5, 1),
+                    duration=600,
+                ),
+                ContentItem(
+                    id="short",
+                    title="Short",
+                    url="https://youtube.com/shorts/short",
+                    date=date(2026, 5, 1),
+                    duration=30,
+                    source_tab="shorts",
+                ),
+            ],
+            channel_name="Example Channel",
+            channel_slug="example_channel",
+            scraped_item_count=2,
+            candidate_item_count=2,
+        )
+
+    monkeypatch.setattr(app_mod, "fetch_channel_entries", fake_fetch_channel_entries)
+    monkeypatch.setattr(app_mod, "enrich_content_item", lambda item: item)
+
+    result = run_incremental_fetch(
+        FetchNewRunConfig(
+            channels=["https://youtube.com/@example"],
+            force_from=date(2026, 4, 28),
+            output_dir=tmp_path / "out",
+            state_file=tmp_path / "state.json",
+            no_shorts=True,
+            transcript_options=TranscriptOptions(enabled=False),
+        )
+    )
+
+    assert seen["include_videos"] is True
+    assert seen["include_shorts"] is False
+    assert [item.id for item in result.channel_results[0].items] == ["video"]
+    assert len(result.channel_results[0].written_files) == 1
 
 
 def test_build_transcript_options_reads_cookie_sources_from_env(tmp_path, monkeypatch):

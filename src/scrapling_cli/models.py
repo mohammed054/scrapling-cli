@@ -206,6 +206,8 @@ class FetchNewRunConfig:
     output_dir: Path = Path("output_new")
     state_file: Path = Path("state.json")
     force_from: Optional[date] = None
+    no_shorts: bool = False
+    no_videos: bool = False
     verbose: bool = False
     log_file: Optional[Path] = None
     transcript_options: TranscriptOptions = field(default_factory=TranscriptOptions)

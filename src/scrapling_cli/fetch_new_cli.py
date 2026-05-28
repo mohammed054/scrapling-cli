@@ -36,6 +36,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="State file that stores the last successful run date per channel input",
     )
     parser.add_argument("--force-from", type=parse_date_arg, default=None, help="Override last-run date")
+    filtering = parser.add_argument_group("Filtering")
+    filtering.add_argument("--no-shorts", action="store_true", help="Skip Shorts entirely")
+    filtering.add_argument("--no-videos", action="store_true", help="Skip long-form videos entirely")
     add_transcript_arguments(parser)
     parser.add_argument("--log-file", default=None, help="Optional log file path")
     parser.add_argument("--no-banner", action="store_true", help="Skip the startup banner")
@@ -54,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
         output_dir=Path(args.output_dir),
         state_file=Path(args.state_file),
         force_from=args.force_from,
+        no_shorts=args.no_shorts,
+        no_videos=args.no_videos,
         verbose=args.verbose,
         log_file=Path(args.log_file) if args.log_file else None,
         transcript_options=build_transcript_options(args),

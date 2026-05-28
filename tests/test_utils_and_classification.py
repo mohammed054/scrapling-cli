@@ -9,6 +9,7 @@ from scrapling_cli.fetcher import (
     WATCH_PAGE_STEALTH_TIMEOUT,
     _fetch_page,
     _find_json_blob,
+    _lockup_to_item,
     _renderer_to_item,
     enrich_content_item,
     fetch_channel_entries,
@@ -39,6 +40,77 @@ def test_renderer_to_item_builds_short_url_from_reel_renderer():
     assert item is not None
     assert item.type == "short"
     assert item.url == "https://www.youtube.com/shorts/abc123"
+
+
+def test_lockup_to_item_builds_video_from_current_youtube_card():
+    lockup = {
+        "contentId": "vid123",
+        "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+        "contentImage": {
+            "thumbnailViewModel": {
+                "image": {
+                    "sources": [
+                        {"url": "small.jpg", "width": 100, "height": 100},
+                        {"url": "large.jpg", "width": 300, "height": 200},
+                    ]
+                },
+                "overlays": [
+                    {
+                        "thumbnailBottomOverlayViewModel": {
+                            "badges": [
+                                {
+                                    "thumbnailBadgeViewModel": {
+                                        "text": "17:05",
+                                        "rendererContext": {
+                                            "accessibilityContext": {"label": "17 minutes, 5 seconds"}
+                                        },
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+            }
+        },
+        "metadata": {
+            "lockupMetadataViewModel": {
+                "title": {"content": "Current card title"},
+                "metadata": {
+                    "contentMetadataViewModel": {
+                        "metadataRows": [
+                            {
+                                "metadataParts": [
+                                    {"text": {"content": "297K views"}},
+                                    {"text": {"content": "18 hours ago"}},
+                                ]
+                            }
+                        ]
+                    }
+                },
+            }
+        },
+        "rendererContext": {
+            "commandContext": {
+                "onTap": {
+                    "innertubeCommand": {
+                        "commandMetadata": {"webCommandMetadata": {"url": "/watch?v=vid123"}},
+                        "watchEndpoint": {"videoId": "vid123"},
+                    }
+                }
+            }
+        },
+    }
+
+    item = _lockup_to_item(lockup, source_tab="videos")
+
+    assert item is not None
+    assert item.id == "vid123"
+    assert item.title == "Current card title"
+    assert item.url == "https://www.youtube.com/watch?v=vid123"
+    assert item.views == 297_000
+    assert item.duration == 1025
+    assert item.thumbnail == "large.jpg"
+    assert item.published_relative == "18 hours ago"
 
 
 def test_classify_all_splits_videos_and_shorts():
