@@ -380,7 +380,7 @@ class TranscriptService:
                     item.id,
                     result.status,
                     result.source or backend.name,
-                    result.error,
+                    result.error or "none",
                 )
             else:
                 logger.info(
@@ -389,7 +389,7 @@ class TranscriptService:
                     item.id,
                     result.status,
                     result.source or backend.name,
-                    result.error,
+                    result.error or "none",
                 )
             if result.status == "available":
                 self._clear_rate_limit_state(backend)
