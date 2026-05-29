@@ -1,0 +1,70 @@
+![Thumbnail](https://i.ytimg.com/vi/EqNe55IzjAw/hqdefault.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAIhCGAHYAQHiAQoIGBACGAY4AUAB&rs=AOn4CLCKyN7eERKVUj0X9KQgc-RKJzaYCw)
+
+# Cybersecurity Architecture: Fundamentals of Confidentiality, Integrity, and Availability
+---
+
+## Info
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2y ago |
+| **Type** | Video |
+| **Duration** | 12:33 |
+| **Views** | 325,765 |
+| **Likes** | 0 |
+| **Comments** | 0 |
+| **Like ratio** | 0.0000% |
+| **Comment ratio** | 0.0000% |
+| **Channel** | [IBM Technology](https://www.youtube.com/ibmtechnology) |
+| **Subscribers** | 1,700,000 |
+| **URL** | [Watch on YouTube](https://www.youtube.com/watch?v=EqNe55IzjAw&pp=0gcJCQ0LAYcqIYzv) |
+| **Category** | - |
+| **Language** | - |
+---
+
+## Tags
+
+`IBM` `Software` `Qradar` `Lightboard` `Cybersecurity` `CIA` `CIA Triad` `MFA` `RBA` `Multifactor authentication` `multi-factor authentication` `multi factor authentication` `Role based access`
+---
+
+## Description
+
+IBM Security QRadar EDR : https://ibm.biz/BdyRmv
+Full Playlist: https://www.youtube.com/playlist?list=PLOspHqNVtKADkWLFt9OcziQF7EatuANSY
+IBM Security X-Force Threat Intelligence Index 2024: https://ibm.biz/BdyRmm
+
+In this next installment of the Cybersecurity Architecture series, Jeff "the Security guy" covers the three fundamentals that must be part of your security checklist: Confidentiality, Integrity, and Availability, also known as the "CIA Triad".
+
+Get started for free on IBM Cloud → https://ibm.biz/ibm-cloud-sign-up
+
+Subscribe to see more videos like this in the future → http://ibm.biz/subscribe-now
+#AI #Software #ITModernization #Cybersecurity #QRadar #JeffCrume
+
+Chapters
+00:00 Confidentiality
+03:51 Integrity
+06:50 Availability
+---
+
+## Chapters
+
+_No chapter markers._
+---
+
+## Top Comments
+
+_No comment data available._
+---
+
+## Transcript
+
+| Field | Value |
+|-------|-------|
+| **Status** | `available` |
+| **Source** | `youtube_transcript_api` |
+| **Language** | `en` |
+| **Characters** | `12005` |
+| **Error** | `none` |
+
+
+Welcome back to our Cybersecurity Architecture Series. In the last video, I talked about five security principles you should always follow and one you should never follow. In today's video, we're going to talk about the CIA. No, not the spy guy: Confidentiality, Integrity and Availability. So let's get started with the first of these, Confidentiality. So, confidentiality, we basically accomplish with two main types of technologies: One is access control, which consists of authentication and authorization. So authentication is answering the question, "Who are you?" In authorization, "Are you allowed to do this or not?" And let's take an example of how this might work. So let's say we've got a guy here who is an authorized user and he is going to try to come into access something down here. Could be some IoT device, could be a database, could be a server. He's going to access those things. He comes in and we're going to check him to see if he is, in fact, who he claims to be. We're going to do the authentication step. And in doing that, we might use a technology like multifactor authentication-- some way where he proves who he is by something he knows, something he has, something he is --and use them in combination. And if he's able to do that, then we allow him in. And another thing we might add to this is a role-based access control where I look and say, just because I know who you are doesn't necessarily mean I know what you're allowed to do. So I need to check now your privileges and see if they match what it is that you're asking for. If we pass both of these checks-- you're who you claim to be and you have the privileges --then I'm going to allow you through. So that's the positive case. In the negative case, here we have an unauthorized user who comes in and they try to authenticate to the system. And let's say, for instance, they're not able to; they don't have the right credentials. So we block them. Or, they come into the system and they're able to authenticate, but they don't have the privileges and therefore they're not allowed access any further. So that's how we're basically controlling confidentiality. Only the authorized user can see this, and we're using access control capabilities in order to enforce that. Now, what's another piece that we can do here? Encryption is the other component that is involved in ensuring confidentiality. Let's take an example here. Here we have a guy who is going to send a message to an authorized user. And we want to make sure that the person that is not authorized cannot read the message. How do we do that? Well, he takes his message and he encrypts it. So he encrypts it with a key and a cryptographic key we've shown here to look like an actual house key, but really, it's a string of bits and he's going to encrypt his message with that. The message then is going to go in an encrypted envelope, if you think of it that way, it's obscured. Somebody who is observing from the outside won't be able to read what it is, it looks scrambled. And then the message comes over here. This guy, who uses the very same key, because we call this symmetric encryption, because we're using the same key on both sides. In other words, it's a pre-shared key. Both of them have that knowledge in advance. How they get there is a whole other matter. But to keep this example simple we'll assume that they both know the key. He knows the key, so he's able to decrypt the message and therefore he can read it. So we get success. Now, this other guy here, however, does not have the key and therefore all he gets is an encrypted message, which he can't read. So these are two main things then that we're doing. We're using access control and encryption as ways to ensure confidentiality. Okay, we just covered Confidentiality. Now we're going to move on to cover Integrity. Integrity is the quality that says a message is true to itself. A transaction is true to itself. If it gets modified, then we can detect it. And if it's detected, then we can know not to trust that and we can take the appropriate countermeasures. So let's take a look at a couple of examples of this. Let's say we've got a good guy here and he goes on to a system and he logs in. Well, we log a record in the syslog to indicate that that occurred. Then he goes and does some transaction, and then maybe he logs off. So we're logging those activities as they occur. Now, let's say there's another guy here who-- the bad guy --he comes in and logs in and then he makes a copy of the database and exfiltrate it. Then he says, "You know, I don't want anybody to see that. So what I'm going to do is go back here, elevate my privileged level to superuser, and I'm going to delete these log records so nobody sees what happened." Well, that's a big problem. What we need are technologies that allow us to know that this syslog is no longer trustworthy, that someone has tampered with it. And those technologies are these things right here. They are cryptographic functions-- digital signatures and message authentication codes that are used as ways to to tell if, when I compare one set of records to another, that there's been a change. So this is the way we can detect that and then take the appropriate countermeasures. Another example. Let's take a look at a blockchain, which is a distributed ledger that everyone would have access to. And as a result, we can all verify whether the results and the information in it is true or not. Here's this same good guy, and he has appended to the blockchain a few different records and done things like this. And in fact, in this middle record, let's say he's putting a transaction where he says, "I want to order 100 widgets." And there we see that. Now what we want is for this thing to be immutable, for it to be unchangeable. You can add new entries, but you can't change the ones that are on and you can't delete ones that are on there. Let's say a bad guy wants to violate that. So his intention is to come along and say, "Let's have some fun here and make this 400-- no more fun --400,000 widgets" and really mess with this guy. That's what he wants to do. He may also want to come along and say, "You know what? I'm just really like to just get rid of that one entirely." So those are the things that we are going to not allow to happen. And how do we keep those from not happening? Again, we're going to use these kinds of technologies, these cryptographic technologies that allow us to see that a record in either of these cases, if someone attempts to modify that, we can see that attempt and we can block it. Okay, now we've covered Confidentiality and Integrity. Let's do the last part of the triangle, Availability. Availability means that the system should be available, the resources should be available to authorized users--that they can get access when they need it. Well, let's take an example of what this would look like. Let's say we've got an authorized user here and he comes in and hits a web server, looks up his transaction balance and gets the results back. That's what we want to see occur. Well, there's always going to be somebody who's going to try to mess with this. And so we've got a bad guy and he's going to come in here and send a transaction and another and another and another. And he's just going to be flooding this system with all of these transaction requests, faster than the system can respond to them. And if it can't keep up, we end up with what's known as a "denial of service" because it now can't service other legitimate users for all the illegitimate traffic that's come in. So that's a basic denial of service case. How about a more complex case where we amplify the effect of one user and therefore have an even more devastating attack? Well, in this case, let's say this guy takes over control of his system. So this user is unsuspecting--Ignorance is bliss, he's happy as can be. Has no idea that this guy is controlling his system remotely. And he takes over a bunch of these systems, in fact. Now, all of these are under his control, and at any point he can send the command to marshal all of these systems and have them do the same thing. All of them now are going to start flooding this web server with traffic. And this thing then goes down even faster because of the the multiplier-- the force multiplier --that's been added in this case. And that's something we call a "distributed denial of service" attack. So it's been distributed across a number of different attackers. Now, in this case, unsuspecting. We call this thing a botnet because they're sitting out there under his control. Now, there's a lot of different variations on this. I just gave you the simple ones where it's just overwhelming amounts of traffic. In some cases we use other techniques. Like one of the original of these was called a SYN flood. And in a SYN flood, what occurs is we have-- in a normal TCP session setup, we have what's known as a three-way handshake. What occurs is you have someone who sends a SYN message. They get back from the server an acknowledgment (ACK). And then they're supposed to respond with a SYNACK. That's the three-way handshake. In between these two, the server is going to reserve some resources for that session. So it's sort of like knocking on your door, and then you go to the door, and you wait for someone to be there-- to come in to the door. If someone knocks on the door, you open the door and then you wait, and you wait forever, then there's eventually going to be no more doors and all of these things get used up. That's what happens in a SYN flood case. Someone in this case, the bad guy, sends the SYN. And so he sends a SYN down here, and when that comes in, this guy is going to reserve a resource for him to come in and use--a session. Then he sends back the acknowledgment and then this guy just goes quiet, just goes dark, doesn't answer. In fact, what he does is he starts another one, another SYN message. He gets an acknowledgment back, this guy holds a resource for him. And again, no answer. He does it again. Starts another-- ring, the doorbell --we reserve resources and send the acknowledgment. And again, he doesn't respond. Now what happens? We're out of resources. Nobody else, legitimate or otherwise, can get into this system. So obviously, the way we would have to guard against something like this is maybe put in a timeout that says, I'm only going to hold this for so long. I'm only going to stand at the front door so long waiting for you to come in. And after that, you know, I'm closing the door and letting somebody else try to come in. So that's an example of a SYN flood. There's a lot of other examples of denial of service attacks, where we do a reflection attacks, where we send information to someone else and then spoof the source address so that it comes back to where our intended target is. There are, in addition to reflection attacks, there are other types of force multipliers that we can do in these cases. But what we're trying to do is guard against these cases. We need to make sure that the system is up and available to the authorized users when they need it. So, if I'm working on an IT project, one of the things I want to be able to do is make sure that I've covered all the bases. And in covering all those bases, this is the checklist you should use. Have I met the confidentiality requirements of the project? Is the sensitive data only available to those who are authorized to see it? Is this system true to itself? Do I have integrity checking so that if someone modifies it or tampers with it, I can be aware of that and know to adjust my trust level? And do I have the system available all the time that it's supposed to be available? This is the CIA triad. If I've covered all of these three bases, then it's job done. Thanks for watching. Before you leave, don't forget to hit subscribe. That way you won't miss the next installment of the Cybersecurity Architecture series.
