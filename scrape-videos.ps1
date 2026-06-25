@@ -1,13 +1,13 @@
-<# 
+<#
 .SYNOPSIS
-    Scrape YouTube video transcripts from a URL list file using dedicated Chrome profile.
+    Scrape YouTube video transcripts from a URL list file using Chrome cookies.
 
 .DESCRIPTION
     This script:
     1. Kills ALL Chrome processes (including background/utility processes)
-    2. Creates/uses a dedicated Chrome profile for scraping (avoids cookie locks)
+    2. Waits for cookie database to unlock
     3. Reads video URLs from videos.txt
-    4. Runs the Python scraper for each video
+    4. Runs the Python scraper using Chrome's Default profile cookies
     5. Restarts your main Chrome profile
 
 .PARAMETER UrlsFile
@@ -16,14 +16,20 @@
 .PARAMETER OutputDir
     Output directory for markdown files (default: output/videos)
 
-.PARAMETER ProfilePath
-    Path to dedicated Chrome profile (default: Z:\chrome-scrape-profile)
+.PARAMETER CookiesProfile
+    Chrome profile to use for cookies (default: Default)
+
+.PARAMETER CookiesFile
+    Path to Netscape format cookies.txt file (alternative to browser profile)
 
 .PARAMETER VerboseLog
     Enable verbose logging
 
 .PARAMETER NoEnrich
     Skip watch page enrichment (faster, less metadata)
+
+.PARAMETER NoYtDlp
+    Disable yt-dlp backend (use only youtube_transcript_api)
 
 .PARAMETER NoRestartChrome
     Don't restart Chrome after completion
@@ -32,10 +38,13 @@
     .\scrape-videos.ps1
 
 .EXAMPLE
-    .\scrape-videos.ps1 -Verbose -NoEnrich
+    .\scrape-videos.ps1 -VerboseLog -NoEnrich
 
 .EXAMPLE
     .\scrape-videos.ps1 -UrlsFile "my_videos.txt" -OutputDir "output/my_videos"
+
+.EXAMPLE
+    .\scrape-videos.ps1 -CookiesFile "cookies.txt" -NoYtDlp
 #>
 
 [CmdletBinding()]
@@ -47,7 +56,10 @@ param(
     [string]$OutputDir = "output/videos",
 
     [Parameter()]
-    [string]$ProfilePath = "Z:\chrome-scrape-profile",
+    [string]$CookiesProfile = "Default",
+
+    [Parameter()]
+    [string]$CookiesFile = "",
 
     [Parameter()]
     [switch]$VerboseLog,
@@ -56,12 +68,14 @@ param(
     [switch]$NoEnrich,
 
     [Parameter()]
+    [switch]$NoYtDlp,
+
+    [Parameter()]
     [switch]$NoRestartChrome
 )
 
 # --- Configuration ---
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$PythonScript = Join-Path $ScriptDir "scrape_videos.py"
 $ProjectDir = $ScriptDir
 
 # --- Functions ---
@@ -87,49 +101,40 @@ function Kill-AllChrome {
             }
         }
     }
-    Write-Log "Waiting for file handles to release..."
-    Start-Sleep -Seconds 4
-}
-
-function Ensure-ProfileExists {
-    param([string]$Path)
-    if (-not (Test-Path $Path)) {
-        Write-Log "Creating dedicated Chrome profile at: $Path"
-        New-Item -ItemType Directory -Path $Path -Force | Out-Null
-        Write-Log "Profile directory created. Launching Chrome for initial setup..."
-        Write-Log "Please sign in to YouTube in the opened Chrome window, then close it."
-        $chromeExe = (Get-Command "chrome.exe" -ErrorAction SilentlyContinue).Source
-        if (-not $chromeExe) {
-            $chromeExe = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-            if (-not (Test-Path $chromeExe)) {
-                $chromeExe = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
-            }
-        }
-        if (Test-Path $chromeExe) {
-            Start-Process -FilePath $chromeExe -ArgumentList "--user-data-dir=`"$Path`"", "--no-first-run" -Wait
-            Write-Log "Chrome setup complete."
-        } else {
-            Write-Log "Chrome executable not found. Please create profile manually." "ERROR"
-            exit 1
-        }
-    } else {
-        Write-Log "Using existing Chrome profile at: $Path"
+    # Also kill any remaining Chrome-related processes
+    $chromeProcs = Get-Process | Where-Object { $_.ProcessName -like "*chrome*" } -ErrorAction SilentlyContinue
+    foreach ($proc in $chromeProcs) {
+        try {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            Write-Log "  Stopped $($proc.ProcessName) (PID: $($proc.Id))"
+        } catch { }
     }
+    Write-Log "Waiting for file handles to release..."
+    Start-Sleep -Seconds 6
 }
 
 function Run-Scraper {
     param(
         [string]$UrlsFile,
         [string]$OutputDir,
-        [string]$ProfilePath,
+        [string]$CookiesProfile,
+        [string]$CookiesFile,
         [switch]$VerboseLog,
-        [switch]$NoEnrich
+        [switch]$NoEnrich,
+        [switch]$NoYtDlp
     )
 
     Write-Log "Starting transcript scraper..."
-    Write-Log "  URLs file:   $UrlsFile"
-    Write-Log "  Output dir:  $OutputDir"
-    Write-Log "  Profile:     $ProfilePath"
+    Write-Log "  URLs file:    $UrlsFile"
+    Write-Log "  Output dir:   $OutputDir"
+    if ($CookiesFile) {
+        Write-Log "  Cookies:      file:$CookiesFile"
+    } else {
+        Write-Log "  Cookies:      chrome:$CookiesProfile"
+    }
+    if ($NoYtDlp) {
+        Write-Log "  Backend:      youtube_transcript_api only (yt-dlp disabled)"
+    }
 
     $pythonExe = (Get-Command "python" -ErrorAction SilentlyContinue).Source
     if (-not $pythonExe) {
@@ -140,16 +145,22 @@ function Run-Scraper {
         "scrape_videos.py",
         "--urls-file", $UrlsFile,
         "--output-dir", $OutputDir,
-        "--cookies-from-browser", "chrome:$ProfilePath",
-        "--transcript-delay", "12",
-        "--transcript-retries", "8",
-        "--transcript-rate-limit-cooldown", "600",
+        "--transcript-delay", "20",
+        "--transcript-retries", "12",
+        "--transcript-rate-limit-cooldown", "1200",
         "--allow-missing-transcripts",
         "--workers", "1"
     )
 
+    if ($CookiesFile) {
+        $argList += "--cookies-file", $CookiesFile
+    } else {
+        $argList += "--cookies-from-browser", "chrome:$CookiesProfile"
+    }
+
     if ($VerboseLog) { $argList += "--verbose" }
     if ($NoEnrich) { $argList += "--no-enrich" }
+    if ($NoYtDlp) { $argList += "--no-yt-dlp" }
 
     Write-Log "Running: $pythonExe $($argList -join ' ')"
 
@@ -167,18 +178,17 @@ try {
     # Step 1: Kill all Chrome processes
     Kill-AllChrome
 
-    # Step 2: Ensure dedicated profile exists
-    Ensure-ProfileExists -Path $ProfilePath
-
-    # Step 3: Run the scraper
+    # Step 2: Run the scraper
     $exitCode = Run-Scraper `
         -UrlsFile $UrlsFile `
         -OutputDir $OutputDir `
-        -ProfilePath $ProfilePath `
+        -CookiesProfile $CookiesProfile `
+        -CookiesFile $CookiesFile `
         -VerboseLog:$VerboseLog `
-        -NoEnrich:$NoEnrich
+        -NoEnrich:$NoEnrich `
+        -NoYtDlp:$NoYtDlp
 
-    # Step 4: Restart main Chrome
+    # Step 3: Restart main Chrome
     if (-not $NoRestartChrome) {
         Write-Log "Restarting main Chrome..."
         Start-Process "chrome.exe" -ErrorAction SilentlyContinue
@@ -196,7 +206,7 @@ try {
 }
 catch {
     Write-Log "FATAL ERROR: $_" "ERROR"
-    
+
     # Try to restart Chrome even on failure
     if (-not $NoRestartChrome) {
         Write-Log "Restarting main Chrome..."

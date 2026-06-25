@@ -114,8 +114,14 @@ def main() -> int:
     )
     parser.add_argument(
         "--cookies-from-browser",
-        default="chrome:Z:/chrome-scrape-profile",
-        help="Browser and profile for yt-dlp cookies (e.g., chrome:Z:/chrome-scrape-profile)",
+        default="chrome:Default",
+        help="Browser and profile for yt-dlp cookies (e.g., chrome:Default)",
+    )
+    parser.add_argument(
+        "--cookies-file",
+        type=Path,
+        default=None,
+        help="Path to Netscape format cookies.txt file (alternative to --cookies-from-browser)",
     )
     parser.add_argument(
         "--transcript-language",
@@ -168,6 +174,11 @@ def main() -> int:
         action="store_true",
         help="Include scoring details in markdown (requires channel context, mostly placeholder)",
     )
+    parser.add_argument(
+        "--no-yt-dlp",
+        action="store_true",
+        help="Disable yt-dlp backend (use only youtube_transcript_api)",
+    )
 
     args = parser.parse_args()
 
@@ -195,10 +206,18 @@ def main() -> int:
         require_success=not args.allow_missing_transcripts,
         allow_hosted_asr=False,  # Disable OpenAI/OpenRouter ASR per user request
         cookies_from_browser=args.cookies_from_browser,
+        cookies_file=args.cookies_file,
     )
 
     # Initialize transcript service
-    transcript_service = TranscriptService(transcript_options)
+    if args.no_yt_dlp:
+        from src.scrapling_cli.transcripts.backends import YouTubeTranscriptApiBackend
+
+        transcript_service = TranscriptService(
+            transcript_options, backends=[YouTubeTranscriptApiBackend()]
+        )
+    else:
+        transcript_service = TranscriptService(transcript_options)
 
     # Ensure output directory exists
     args.output_dir.mkdir(parents=True, exist_ok=True)
