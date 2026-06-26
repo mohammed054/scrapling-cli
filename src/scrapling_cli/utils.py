@@ -43,7 +43,11 @@ def repair_text(text: str) -> str:
 
 
 def slugify(text: str, *, max_len: int = MAX_FILENAME_LEN, separator: str = "-") -> str:
-    normalized = unicodedata.normalize("NFKD", repair_text(text)).encode("ascii", "ignore").decode("ascii")
+    normalized = (
+        unicodedata.normalize("NFKD", repair_text(text))
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
     lowered = normalized.lower()
     cleaned = re.sub(r"[^a-z0-9\s\-]", " ", lowered)
     collapsed = re.sub(r"[\s\-]+", separator, cleaned).strip(separator)
@@ -81,7 +85,7 @@ def parse_date(value: object) -> Optional[date]:
     raw = str(value).strip()
     for fmt in ("%Y-%m-%d", "%Y%m%d", "%Y-%m-%dT%H:%M:%S"):
         try:
-            text = raw[:10] if "T" in raw else raw
+            text = raw[: raw.index("T")] if "T" in raw else raw
             return datetime.strptime(text, fmt).date()
         except ValueError:
             continue
@@ -107,12 +111,21 @@ def approx_date_from_relative(relative: str) -> Optional[date]:
 def content_sort_key(item: ContentItem, *, score_first: bool) -> tuple:
     safe_date = item.date or date.min
     if score_first:
-        return (-round(item.score, 6), -safe_date.toordinal(), item.title.lower(), item.id)
+        return (
+            -round(item.score, 6),
+            -safe_date.toordinal(),
+            item.title.lower(),
+            item.id,
+        )
     return (-safe_date.toordinal(), item.title.lower(), item.id)
 
 
-def stable_sort(items: Iterable[ContentItem], *, score_first: bool) -> list[ContentItem]:
-    return sorted(items, key=lambda item: content_sort_key(item, score_first=score_first))
+def stable_sort(
+    items: Iterable[ContentItem], *, score_first: bool
+) -> list[ContentItem]:
+    return sorted(
+        items, key=lambda item: content_sort_key(item, score_first=score_first)
+    )
 
 
 def build_filename(item: ContentItem) -> str:

@@ -144,7 +144,11 @@ def _find_json_blob(html: str, variable_name: str) -> Optional[dict]:
                         try:
                             return json.loads(html[brace_start : index + 1])
                         except json.JSONDecodeError as exc:
-                            logger.debug("fetcher.json_decode_error variable=%s error=%s", variable_name, exc)
+                            logger.debug(
+                                "fetcher.json_decode_error variable=%s error=%s",
+                                variable_name,
+                                exc,
+                            )
                         break
             index += 1
     return None
@@ -198,7 +202,11 @@ def _fetch_page(
             status = getattr(page, "status", 200) if page else None
             if page and status == 200:
                 html = _get_raw_html(page)
-                if "ytInitialData" in html or "ytInitialPlayerResponse" in html or len(html) > 50_000:
+                if (
+                    "ytInitialData" in html
+                    or "ytInitialPlayerResponse" in html
+                    or len(html) > 50_000
+                ):
                     return page
                 logger.debug("fetcher.small_response url=%s size=%s", url, len(html))
             else:
@@ -206,10 +214,14 @@ def _fetch_page(
                 if not use_stealth and status in skip_stealth_on_statuses:
                     if status in WATCH_PAGE_RATE_LIMIT_STATUSES and rate_limit_callback:
                         rate_limit_callback(url, status)
-                    logger.info("fetcher.skip_stealth_fallback url=%s status=%s", url, status)
+                    logger.info(
+                        "fetcher.skip_stealth_fallback url=%s status=%s", url, status
+                    )
                     return None
         except Exception as exc:  # noqa: BLE001
-            logger.debug("fetcher.request_error url=%s attempt=%s error=%s", url, attempt, exc)
+            logger.debug(
+                "fetcher.request_error url=%s attempt=%s error=%s", url, attempt, exc
+            )
         if attempt < retries:
             time.sleep(2**attempt)
     if not use_stealth and allow_stealth_fallback:
@@ -233,7 +245,9 @@ def _record_watch_page_rate_limit(url: str, status: int) -> None:
     global _watch_page_enrichment_resume_at, _watch_page_enrichment_warning_logged
     resume_at = time.monotonic() + WATCH_PAGE_RATE_LIMIT_COOLDOWN_SECONDS
     with _watch_page_cooldown_lock:
-        _watch_page_enrichment_resume_at = max(_watch_page_enrichment_resume_at, resume_at)
+        _watch_page_enrichment_resume_at = max(
+            _watch_page_enrichment_resume_at, resume_at
+        )
         _watch_page_enrichment_warning_logged = False
     logger.warning(
         "fetcher.watch_page_cooldown status=%s cooldown_seconds=%.0f url=%s",
@@ -284,7 +298,9 @@ def _extract_text_runs(runs_obj: object) -> str:
     if not runs_obj:
         return ""
     runs = runs_obj if isinstance(runs_obj, list) else runs_obj.get("runs", [])
-    return repair_text("".join(run.get("text", "") for run in runs if isinstance(run, dict)))
+    return repair_text(
+        "".join(run.get("text", "") for run in runs if isinstance(run, dict))
+    )
 
 
 def _parse_view_count(text: str) -> int:
@@ -318,7 +334,10 @@ def _extract_thumbnail(renderer: dict) -> str:
     thumbnails = renderer.get("thumbnail", {}).get("thumbnails") or []
     if not thumbnails:
         return ""
-    best = max(thumbnails, key=lambda thumb: (thumb.get("width") or 0) * (thumb.get("height") or 0))
+    best = max(
+        thumbnails,
+        key=lambda thumb: (thumb.get("width") or 0) * (thumb.get("height") or 0),
+    )
     return best.get("url", "")
 
 
@@ -326,7 +345,10 @@ def _extract_thumbnail_view_model(view_model: dict) -> str:
     sources = view_model.get("image", {}).get("sources") or []
     if not sources:
         return ""
-    best = max(sources, key=lambda source: (source.get("width") or 0) * (source.get("height") or 0))
+    best = max(
+        sources,
+        key=lambda source: (source.get("width") or 0) * (source.get("height") or 0),
+    )
     return best.get("url", "")
 
 
@@ -356,14 +378,18 @@ def _metadata_parts(lockup: dict) -> list[str]:
     parts: list[str] = []
     for row in metadata_rows:
         for part in row.get("metadataParts", []):
-            text = _extract_content_text(part.get("text")) or repair_text(str(part.get("accessibilityLabel", "")).strip())
+            text = _extract_content_text(part.get("text")) or repair_text(
+                str(part.get("accessibilityLabel", "")).strip()
+            )
             if text:
                 parts.append(text)
     return parts
 
 
 def _lockup_duration_text(lockup: dict) -> str:
-    overlays = lockup.get("contentImage", {}).get("thumbnailViewModel", {}).get("overlays", [])
+    overlays = (
+        lockup.get("contentImage", {}).get("thumbnailViewModel", {}).get("overlays", [])
+    )
     for overlay in overlays:
         badges = overlay.get("thumbnailBottomOverlayViewModel", {}).get("badges", [])
         for badge in badges:
@@ -371,8 +397,13 @@ def _lockup_duration_text(lockup: dict) -> str:
             text = badge_model.get("text", "")
             if text and ":" in text:
                 return repair_text(str(text).strip())
-            label = _safe_text(badge_model, "rendererContext", "accessibilityContext", "label")
-            match = re.search(r"(?:(\d+)\s+hours?,\s*)?(?:(\d+)\s+minutes?,\s*)?(\d+)\s+seconds?", label)
+            label = _safe_text(
+                badge_model, "rendererContext", "accessibilityContext", "label"
+            )
+            match = re.search(
+                r"(?:(\d+)\s+hours?,\s*)?(?:(\d+)\s+minutes?,\s*)?(\d+)\s+seconds?",
+                label,
+            )
             if match:
                 hours = int(match.group(1) or 0)
                 minutes = int(match.group(2) or 0)
@@ -415,7 +446,9 @@ def _lockup_to_item(lockup: dict, *, source_tab: str) -> ContentItem | None:
         url = f"https://www.youtube.com/watch?v={video_id}"
 
     metadata_values = _metadata_parts(lockup)
-    view_text = next((value for value in metadata_values if "view" in value.lower()), "")
+    view_text = next(
+        (value for value in metadata_values if "view" in value.lower()), ""
+    )
     published_relative = next(
         (
             value
@@ -424,7 +457,9 @@ def _lockup_to_item(lockup: dict, *, source_tab: str) -> ContentItem | None:
         ),
         "",
     )
-    thumbnail = _extract_thumbnail_view_model(lockup.get("contentImage", {}).get("thumbnailViewModel", {}))
+    thumbnail = _extract_thumbnail_view_model(
+        lockup.get("contentImage", {}).get("thumbnailViewModel", {})
+    )
     duration_text = _lockup_duration_text(lockup)
 
     return ContentItem(
@@ -440,11 +475,18 @@ def _lockup_to_item(lockup: dict, *, source_tab: str) -> ContentItem | None:
     )
 
 
-def _renderer_to_item(renderer: dict, *, is_short: bool, source_tab: str) -> ContentItem | None:
-    video_id = renderer.get("videoId") or renderer.get("reelWatchEndpoint", {}).get("videoId")
+def _renderer_to_item(
+    renderer: dict, *, is_short: bool, source_tab: str
+) -> ContentItem | None:
+    video_id = renderer.get("videoId") or renderer.get("reelWatchEndpoint", {}).get(
+        "videoId"
+    )
     if not video_id:
         return None
-    title = (_extract_text_runs(renderer.get("title")) or _safe_text(renderer, "headline", "simpleText")).strip()
+    title = (
+        _extract_text_runs(renderer.get("title"))
+        or _safe_text(renderer, "headline", "simpleText")
+    ).strip()
     if not title or title in {"[Deleted video]", "[Private video]"}:
         return None
 
@@ -462,7 +504,9 @@ def _renderer_to_item(renderer: dict, *, is_short: bool, source_tab: str) -> Con
         "shortViewCountText",
         "simpleText",
     )
-    published_relative = _safe_text(renderer, "publishedTimeText", "simpleText") or _safe_text(
+    published_relative = _safe_text(
+        renderer, "publishedTimeText", "simpleText"
+    ) or _safe_text(
         renderer,
         "relativePublishedTime",
     )
@@ -475,7 +519,11 @@ def _renderer_to_item(renderer: dict, *, is_short: bool, source_tab: str) -> Con
     if url and not url.startswith("http"):
         url = f"https://www.youtube.com{url}"
     if not url:
-        url = f"https://www.youtube.com/shorts/{video_id}" if is_short else f"https://www.youtube.com/watch?v={video_id}"
+        url = (
+            f"https://www.youtube.com/shorts/{video_id}"
+            if is_short
+            else f"https://www.youtube.com/watch?v={video_id}"
+        )
 
     return ContentItem(
         id=video_id,
@@ -490,7 +538,9 @@ def _renderer_to_item(renderer: dict, *, is_short: bool, source_tab: str) -> Con
     )
 
 
-def _walk_contents(contents: list, *, source_tab: str) -> tuple[list[ContentItem], Optional[str]]:
+def _walk_contents(
+    contents: list, *, source_tab: str
+) -> tuple[list[ContentItem], Optional[str]]:
     items: list[ContentItem] = []
     continuation: Optional[str] = None
 
@@ -498,13 +548,17 @@ def _walk_contents(contents: list, *, source_tab: str) -> tuple[list[ContentItem
         inner = entry.get("richItemRenderer", {}).get("content", entry)
         video_renderer = inner.get("videoRenderer") or inner.get("gridVideoRenderer")
         if video_renderer:
-            item = _renderer_to_item(video_renderer, is_short=False, source_tab=source_tab)
+            item = _renderer_to_item(
+                video_renderer, is_short=False, source_tab=source_tab
+            )
             if item:
                 items.append(item)
             continue
         reel_renderer = inner.get("reelItemRenderer")
         if reel_renderer:
-            item = _renderer_to_item(reel_renderer, is_short=True, source_tab=source_tab)
+            item = _renderer_to_item(
+                reel_renderer, is_short=True, source_tab=source_tab
+            )
             if item:
                 items.append(item)
             continue
@@ -523,7 +577,11 @@ def _walk_contents(contents: list, *, source_tab: str) -> tuple[list[ContentItem
                 .get("videoId")
             )
             headline = shorts_lockup.get("headline", {})
-            title = repair_text(headline.get("content", "")) if isinstance(headline, dict) else ""
+            title = (
+                repair_text(headline.get("content", ""))
+                if isinstance(headline, dict)
+                else ""
+            )
             if video_id and title:
                 items.append(
                     ContentItem(
@@ -546,13 +604,19 @@ def _walk_contents(contents: list, *, source_tab: str) -> tuple[list[ContentItem
     return items, continuation
 
 
-def _extract_tab_contents(yt_data: dict, tab_name: str) -> tuple[list[ContentItem], Optional[str], str]:
+def _extract_tab_contents(
+    yt_data: dict, tab_name: str
+) -> tuple[list[ContentItem], Optional[str], str]:
     channel_name = repair_text(
         yt_data.get("header", {}).get("c4TabbedHeaderRenderer", {}).get("title")
         or _safe_text(yt_data, "metadata", "channelMetadataRenderer", "title")
         or ""
     )
-    tabs = yt_data.get("contents", {}).get("twoColumnBrowseResultsRenderer", {}).get("tabs", [])
+    tabs = (
+        yt_data.get("contents", {})
+        .get("twoColumnBrowseResultsRenderer", {})
+        .get("tabs", [])
+    )
     for tab in tabs:
         renderer = tab.get("tabRenderer", {})
         if renderer.get("title", "").lower() != tab_name:
@@ -560,7 +624,9 @@ def _extract_tab_contents(yt_data: dict, tab_name: str) -> tuple[list[ContentIte
         content = renderer.get("content", {})
         rich_grid = content.get("richGridRenderer", {})
         if rich_grid:
-            items, continuation = _walk_contents(rich_grid.get("contents", []), source_tab=tab_name)
+            items, continuation = _walk_contents(
+                rich_grid.get("contents", []), source_tab=tab_name
+            )
             return items, continuation, channel_name
         section_list = content.get("sectionListRenderer", {})
         if section_list:
@@ -573,7 +639,9 @@ def _extract_tab_contents(yt_data: dict, tab_name: str) -> tuple[list[ContentIte
                         renderer_block = content_item.get(key, {})
                         if renderer_block:
                             more, token = _walk_contents(
-                                renderer_block.get("items", renderer_block.get("contents", [])),
+                                renderer_block.get(
+                                    "items", renderer_block.get("contents", [])
+                                ),
                                 source_tab=tab_name,
                             )
                             items.extend(more)
@@ -581,6 +649,31 @@ def _extract_tab_contents(yt_data: dict, tab_name: str) -> tuple[list[ContentIte
                                 continuation = token
             return items, continuation, channel_name
     return [], None, channel_name
+
+
+def _innertube_player(video_id: str, *, retries: int = 3) -> dict | None:
+    """Fetch player response for a video via the Innertube API."""
+    if Fetcher is None:
+        raise FetcherError("scrapling is not installed")
+    url = f"https://www.youtube.com/youtubei/v1/player?key={INNERTUBE_KEY}"
+    payload = {
+        "context": INNERTUBE_CONTEXT,
+        "videoId": video_id,
+    }
+    for attempt in range(1, retries + 1):
+        try:
+            response = Fetcher.post(url, json=payload, extra_headers=INNERTUBE_HEADERS)
+            if response and getattr(response, "status", 200) == 200:
+                raw = _get_raw_html(response)
+                if raw:
+                    return json.loads(raw)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "fetcher.innertube_player_error attempt=%s error=%s", attempt, exc
+            )
+        if attempt < retries:
+            time.sleep(2 * attempt)
+    return None
 
 
 def _innertube_browse(token: str, *, retries: int = 3) -> dict | None:
@@ -602,9 +695,13 @@ def _innertube_browse(token: str, *, retries: int = 3) -> dict | None:
     return None
 
 
-def _extract_continuation_items(browse_data: dict, *, source_tab: str) -> tuple[list[ContentItem], Optional[str]]:
+def _extract_continuation_items(
+    browse_data: dict, *, source_tab: str
+) -> tuple[list[ContentItem], Optional[str]]:
     for action in browse_data.get("onResponseReceivedActions", []):
-        continuation_items = action.get("appendContinuationItemsAction", {}).get("continuationItems", [])
+        continuation_items = action.get("appendContinuationItemsAction", {}).get(
+            "continuationItems", []
+        )
         if continuation_items:
             return _walk_contents(continuation_items, source_tab=source_tab)
     return [], None
@@ -613,7 +710,13 @@ def _extract_continuation_items(browse_data: dict, *, source_tab: str) -> tuple[
 def _parse_upload_date(player_data: dict) -> Optional[str]:
     micro = player_data.get("microformat", {}).get("playerMicroformatRenderer", {})
     published = micro.get("publishDate") or micro.get("uploadDate")
-    return published.replace("-", "") if published else None
+    if published:
+        return published[:10].replace("-", "")
+    video_details = player_data.get("videoDetails", {})
+    upload_date = video_details.get("uploadDate") or video_details.get("publishDate")
+    if upload_date:
+        return upload_date[:10].replace("-", "")
+    return None
 
 
 def _parse_likes(yt_data: dict) -> int:
@@ -629,7 +732,11 @@ def _parse_likes(yt_data: dict) -> int:
             primary = content.get("videoPrimaryInfoRenderer", {})
             if not primary:
                 continue
-            buttons = primary.get("videoActions", {}).get("menuRenderer", {}).get("topLevelButtons", [])
+            buttons = (
+                primary.get("videoActions", {})
+                .get("menuRenderer", {})
+                .get("topLevelButtons", [])
+            )
             for button in buttons:
                 model = (
                     button.get("segmentedLikeDislikeButtonViewModel", {})
@@ -640,7 +747,9 @@ def _parse_likes(yt_data: dict) -> int:
                     .get("defaultButtonViewModel", {})
                     .get("buttonViewModel", {})
                 )
-                label = repair_text(model.get("accessibilityText") or model.get("title", ""))
+                label = repair_text(
+                    model.get("accessibilityText") or model.get("title", "")
+                )
                 count = _parse_view_count(label)
                 if count:
                     return count
@@ -661,7 +770,9 @@ def _parse_description(yt_data: dict) -> str:
         for content in contents:
             secondary = content.get("videoSecondaryInfoRenderer", {})
             if secondary:
-                return repair_text(_extract_text_runs(secondary.get("description", {}).get("runs", [])))
+                return repair_text(
+                    _extract_text_runs(secondary.get("description", {}).get("runs", []))
+                )
     except Exception as exc:  # noqa: BLE001
         logger.debug("fetcher.parse_description_error error=%s", exc)
     return ""
@@ -679,7 +790,9 @@ def _parse_chapters(player_data: dict) -> list[dict]:
             renderer = block.get("chapterRenderer", {})
             chapters.append(
                 {
-                    "title": repair_text(_extract_text_runs(renderer.get("title", {}).get("runs", []))),
+                    "title": repair_text(
+                        _extract_text_runs(renderer.get("title", {}).get("runs", []))
+                    ),
                     "start": renderer.get("timeRangeStartMillis", 0) // 1000,
                     "end": 0,
                 }
@@ -704,7 +817,9 @@ def _parse_subscribers(yt_data: dict) -> int:
                 continue
             owner = secondary.get("owner", {}).get("videoOwnerRenderer", {})
             text = _safe_text(owner, "subscriberCountText", "simpleText")
-            return _parse_view_count(text.replace("subscribers", "").replace("subscriber", ""))
+            return _parse_view_count(
+                text.replace("subscribers", "").replace("subscriber", "")
+            )
     except Exception as exc:  # noqa: BLE001
         logger.debug("fetcher.parse_subscribers_error error=%s", exc)
     return 0
@@ -733,6 +848,10 @@ def enrich_content_item(item: ContentItem, *, retries: int = 1) -> ContentItem:
             continue
         yt_data = get_yt_initial_data(page)
         player_data = get_yt_initial_player(page)
+
+        if not player_data and item.id:
+            player_data = _innertube_player(item.id) or {}
+
         if not yt_data and not player_data:
             if attempt < retries:
                 time.sleep(2)
@@ -742,12 +861,16 @@ def enrich_content_item(item: ContentItem, *, retries: int = 1) -> ContentItem:
         item.date = parse_date(item.upload_date) or item.date
         item.likes = _parse_likes(yt_data)
         video_details = player_data.get("videoDetails", {})
-        item.description = repair_text(video_details.get("shortDescription", "") or _parse_description(yt_data))
+        item.description = repair_text(
+            video_details.get("shortDescription", "") or _parse_description(yt_data)
+        )
         item.chapters = _parse_chapters(player_data)
         item.subscribers = _parse_subscribers(yt_data)
         item.channel = repair_text(item.channel or video_details.get("author", ""))
         if not item.channel_url and video_details.get("channelId"):
-            item.channel_url = f"https://www.youtube.com/channel/{video_details['channelId']}"
+            item.channel_url = (
+                f"https://www.youtube.com/channel/{video_details['channelId']}"
+            )
         item.tags = [repair_text(tag) for tag in video_details.get("keywords", [])]
         if video_details.get("viewCount"):
             try:
@@ -764,25 +887,38 @@ def enrich_content_item(item: ContentItem, *, retries: int = 1) -> ContentItem:
     return item
 
 
-def _prefilter_candidates(entries: list[ContentItem], target_percent: float) -> list[ContentItem]:
+def _prefilter_candidates(
+    entries: list[ContentItem], target_percent: float
+) -> list[ContentItem]:
     with_views = [entry for entry in entries if entry.views > 0]
     without_views = [entry for entry in entries if entry.views <= 0]
     if len(with_views) < len(entries) * 0.5:
-        logger.info("fetcher.prefilter_skipped reason=insufficient_view_data total=%s", len(entries))
+        logger.info(
+            "fetcher.prefilter_skipped reason=insufficient_view_data total=%s",
+            len(entries),
+        )
         return entries
-    ranked = sorted(with_views, key=lambda entry: (-entry.views, entry.title.lower(), entry.id))
+    ranked = sorted(
+        with_views, key=lambda entry: (-entry.views, entry.title.lower(), entry.id)
+    )
     target_selection = max(1, int(len(entries) * (target_percent / 100)))
     candidate_count = max(50, int(target_selection * CANDIDATE_MULTIPLIER))
     candidate_count = min(len(entries), min(175, candidate_count))
     zero_view_bonus = min(len(without_views), max(5, candidate_count // 10))
     view_ranked_count = max(0, candidate_count - zero_view_bonus)
-    zero_view_ranked = sorted(without_views, key=lambda entry: (entry.title.lower(), entry.id))
+    zero_view_ranked = sorted(
+        without_views, key=lambda entry: (entry.title.lower(), entry.id)
+    )
     candidates = ranked[:view_ranked_count] + zero_view_ranked[:zero_view_bonus]
-    logger.info("fetcher.prefilter total=%s candidates=%s", len(entries), len(candidates))
+    logger.info(
+        "fetcher.prefilter total=%s candidates=%s", len(entries), len(candidates)
+    )
     return candidates
 
 
-def _scrape_tab(channel_url: str, tab: str, *, max_pages: int = 30) -> tuple[list[ContentItem], str]:
+def _scrape_tab(
+    channel_url: str, tab: str, *, max_pages: int = 30
+) -> tuple[list[ContentItem], str]:
     tab_url = f"{channel_url}/{tab}"
     page = _fetch_page(tab_url)
     if not page:
@@ -805,7 +941,12 @@ def _scrape_tab(channel_url: str, tab: str, *, max_pages: int = 30) -> tuple[lis
         items.extend(more)
         time.sleep(0.5)
 
-    logger.info("fetcher.scrape_tab tab=%s items=%s channel=%s", tab, len(items), channel_name or "unknown")
+    logger.info(
+        "fetcher.scrape_tab tab=%s items=%s channel=%s",
+        tab,
+        len(items),
+        channel_name or "unknown",
+    )
     return items, channel_name
 
 
@@ -836,7 +977,11 @@ def fetch_channel_entries(
             resolved_channel_name = scraped_name
         for item in items:
             item.channel_url = channel_url
-            if resolved_channel_name and resolved_channel_name != "unknown_channel" and not item.channel:
+            if (
+                resolved_channel_name
+                and resolved_channel_name != "unknown_channel"
+                and not item.channel
+            ):
                 item.channel = resolved_channel_name
         all_items.extend(items)
         channel_name = resolved_channel_name
@@ -851,7 +996,11 @@ def fetch_channel_entries(
     if not unique:
         raise FetcherError(f"no content found for {channel_input}")
 
-    candidates = _prefilter_candidates(unique, candidate_percent) if candidate_percent else unique
+    candidates = (
+        _prefilter_candidates(unique, candidate_percent)
+        if candidate_percent
+        else unique
+    )
     if enrich_pages:
         for index, item in enumerate(candidates, 1):
             if progress_callback:
